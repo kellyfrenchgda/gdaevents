@@ -30,7 +30,9 @@ const allocated = (ev) => (ev.allocations || []).reduce((n, a) => n + (Number(a.
 const remaining = (ev) => Math.max(0, (Number(ev.capacity) || 0) - allocated(ev));
 const isPast = (ev) => new Date(ev.start).getTime() < Date.now();
 const brandColour = (b) => BRAND_COLOURS[b] || "#7A8F9C";
-const isAdmin = () => me && me.role === "admin";
+const hasRole = (r) => me && Array.isArray(me.roles) && me.roles.includes(r);
+const isAdmin   = () => hasRole("admin");
+const isManager = () => hasRole("manager") || hasRole("admin");
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -110,9 +112,9 @@ function render() {
       '<div class="empty"><h3>Nothing on the board</h3><p>' +
       (events.length
         ? "No events match these filters. Clear the search or widen the state, sport and brand filters."
-        : isAdmin()
+        : isManager()
           ? "Add your first fixture or event to start tracking seats."
-          : "No events yet. An admin needs to add the first fixture.") +
+          : "No events yet. A manager or admin needs to add the first fixture.") +
       "</p>" + (isAdmin() ? '<button class="btn" id="emptyAdd">Add event</button>' : "") + "</div>";
     const b = $("#emptyAdd");
     if (b) b.onclick = () => openForm(null);
@@ -243,7 +245,7 @@ function openSheet(id) {
     '<h3 class="sec-h">Allocations <span class="count">' + used + " of " + cap + "</span></h3>" +
     allocHtml +
 
-    '<div class="miniform" style="margin-top:14px">' +
+    (isManager() ? '<div class="miniform" style="margin-top:14px">' +
       '<div class="grid2">' +
         '<label class="f"><span>Guest name</span><input class="f" id="aName" placeholder="Who is going"></label>' +
         '<label class="f"><span>Company / account</span><input class="f" id="aOrg" placeholder="Optional"></label>' +
@@ -257,13 +259,13 @@ function openSheet(id) {
       '<div class="warn" id="aWarn" role="alert"></div>' +
       '<button class="btn amber sm" id="btnAlloc" style="margin-top:12px">Allocate seats</button>' +
       '<div class="hint">' + left + " of " + cap + " still available.</div>" +
-    "</div>";
+    "</div>" : '<p class="hint" style="margin-top:14px">Contact a manager to allocate seats.</p>');
 
   $("#sheetBody").querySelectorAll("[data-rm]").forEach((b) => { b.onclick = () => releaseAlloc(b.dataset.rm); });
   $("#sheetBody").querySelectorAll("[data-flip]").forEach((b) => { b.onclick = () => flipStatus(ev, b.dataset.flip); });
   $("#btnAlloc").onclick = () => addAlloc(ev.id);
 
-  $("#sheetFoot").hidden = !isAdmin();
+  $("#sheetFoot").hidden = !isManager();
   $("#sheet").classList.add("on");
   $("#scrim").classList.add("on");
   $("#btnCloseSheet").focus();
@@ -440,7 +442,9 @@ async function drawPeople() {
       '<div class="person">' +
         '<div class="who"><div class="n">' + esc(u.name) + "</div>" +
         '<div class="o">' + esc(u.email) + "</div></div>" +
-        '<span class="pill ' + (u.role === "admin" ? "confirmed" : "pending") + '">' + esc(u.role) + "</span>" +
+        + (u.roles || [u.role]).map(r =>
+          '<span class="pill ' + (r === "admin" ? "confirmed" : r === "manager" ? "pending" : "") + '" style="margin-right:3px">' + esc(r) + '</span>'
+        ).join("") +
         (u.id === me.id ? "" : '<button class="rm" data-del="' + u.id + '" aria-label="Remove ' + esc(u.name) + '">✕</button>') +
       "</div>").join("");
     $("#peopleList").querySelectorAll("[data-del]").forEach((b) => {
@@ -569,8 +573,8 @@ function wire() {
     return;
   }
   $("#meName").textContent = me.name;
-  $("#meRole").textContent = me.role;
-  $("#btnAdd").hidden = !isAdmin();
+  $("#meRole").textContent = (me.roles || [me.role]).join(", ");
+  $("#btnAdd").hidden = !isManager();
   $("#btnPeople").hidden = !isAdmin();
 
   reference = (await api("GET", "/reference"));

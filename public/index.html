@@ -119,10 +119,19 @@
         </div>
         <div class="grid2" style="margin-top:10px">
           <label class="f"><span>Starting password</span><input class="f" id="uPass" type="text" placeholder="10+ characters"></label>
-          <label class="f"><span>Role</span><select class="f" id="uRole">
-            <option value="member">Member — allocate seats</option>
-            <option value="admin">Admin — manage events and people</option>
-          </select></label>
+          <label class="f"><span>Roles (select all that apply)</span>
+            <div id="uRoles" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:normal">
+                <input type="checkbox" value="admin" id="uRoleAdmin"> Admin <span style="color:var(--ink-3);font-size:12px">— manage people</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:normal">
+                <input type="checkbox" value="manager" id="uRoleManager"> Manager <span style="color:var(--ink-3);font-size:12px">— edit events &amp; allocations</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:normal">
+                <input type="checkbox" value="member" id="uRoleMember" checked> Member <span style="color:var(--ink-3);font-size:12px">— view only</span>
+              </label>
+            </div>
+          </label>
         </div>
         <div class="warn" id="uWarn" role="alert"></div>
         <button class="btn amber sm" id="btnAddUser" style="margin-top:12px">Add person</button>

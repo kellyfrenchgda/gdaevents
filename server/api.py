@@ -1,7 +1,7 @@
 """Events and allocations API."""
 from flask import Blueprint, g, jsonify, request
 
-from .auth import require_auth, require_admin
+from .auth import require_auth, require_admin, require_manager
 from .db import get_db, now, uid
 
 api_bp = Blueprint("api", __name__)
@@ -99,7 +99,7 @@ def _validate_event(row):
 
 @api_bp.post("/api/events")
 @require_auth
-@require_admin
+@require_manager
 def create_event():
     data = request.get_json(silent=True) or {}
     row = _parse_event_body(data)
@@ -124,7 +124,7 @@ def create_event():
 
 @api_bp.patch("/api/events/<event_id>")
 @require_auth
-@require_admin
+@require_manager
 def update_event(event_id):
     data = request.get_json(silent=True) or {}
     row = _parse_event_body(data)
@@ -156,7 +156,7 @@ def update_event(event_id):
 
 @api_bp.delete("/api/events/<event_id>")
 @require_auth
-@require_admin
+@require_manager
 def delete_event(event_id):
     with get_db() as con:
         cur = con.execute("DELETE FROM events WHERE id=?", (event_id,))
@@ -169,6 +169,7 @@ def delete_event(event_id):
 
 @api_bp.post("/api/events/<event_id>/allocations")
 @require_auth
+@require_manager
 def create_allocation(event_id):
     data = request.get_json(silent=True) or {}
     name = _str(data.get("name"), 120)
@@ -205,6 +206,7 @@ def create_allocation(event_id):
 
 @api_bp.patch("/api/allocations/<alloc_id>")
 @require_auth
+@require_manager
 def update_allocation(alloc_id):
     data = request.get_json(silent=True) or {}
     with get_db() as con:
@@ -219,6 +221,7 @@ def update_allocation(alloc_id):
 
 @api_bp.delete("/api/allocations/<alloc_id>")
 @require_auth
+@require_manager
 def delete_allocation(alloc_id):
     with get_db() as con:
         cur = con.execute("DELETE FROM allocations WHERE id=?", (alloc_id,))
