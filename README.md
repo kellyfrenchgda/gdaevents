@@ -1,5 +1,7 @@
 # GDA Ticket Board
 
+[![CI](https://github.com/kellyfrenchgda/gdaevent/actions/workflows/ci.yml/badge.svg)](https://github.com/kellyfrenchgda/gdaevent/actions/workflows/ci.yml)
+
 Sponsorship ticket and events tracker for Good Drinks Australia. One Node service, SQLite on a
 persistent disk, email-and-password logins.
 
@@ -18,17 +20,15 @@ Hobby workspace. Check Render's pricing page before you commit — rates move.
 
 ### 1. Put the code on GitHub
 
+The repo lives at **github.com/kellyfrenchgda/gdaevent**. The remote is already configured, so:
+
 ```bash
-git init
-git add .
-git commit -m "GDA ticket board"
-git remote add origin git@github.com:YOUR-ORG/gda-ticket-board.git
 git push -u origin main
 ```
 
 ### 2. Create the service
 
-In Render, choose **New → Blueprint** and point it at the repo. `render.yaml` sets up the web
+In Render, choose **New → Blueprint** and point it at `kellyfrenchgda/gdaevent`. `render.yaml` sets up the web
 service, the disk mounted at `/var/data`, and a generated session secret.
 
 If you'd rather not use the blueprint, create a **Web Service** by hand with:
@@ -82,15 +82,26 @@ The repo is set up so every push is tested before Render picks it up.
 
 ### Push it to GitHub
 
-Create an **empty** repo on github.com — no README, no .gitignore, since this project has both —
-then:
+The remote is set to `git@github.com:kellyfrenchgda/gdaevent.git` and the first commit is already
+made, so there's nothing to stage:
 
 ```bash
-git remote add origin git@github.com:YOUR-ORG/gda-ticket-board.git
 git push -u origin main
 ```
 
-The first commit is already made, so there's nothing to stage.
+If `gdaevent` already has commits — a README created with the repo, for example — the push will be
+rejected. Pull them in first:
+
+```bash
+git pull --rebase origin main
+git push -u origin main
+```
+
+Using HTTPS instead of SSH:
+
+```bash
+git remote set-url origin https://github.com/kellyfrenchgda/gdaevent.git
+```
 
 ### What runs on every push
 
@@ -112,8 +123,8 @@ deleting an event clears its allocations, and signing out ends the session.
 
 ### Recommended repo settings
 
-- **Branch protection on `main`** — Settings → Branches → require the `test` check to pass before
-  merging. This is what stops a broken commit reaching production.
+- **Branch protection on `main`** — github.com/kellyfrenchgda/gdaevent/settings/branches → require
+  the `test` check to pass before merging. This is what stops a broken commit reaching production.
 - **Private repo** — nothing secret is committed, but the allocation logic is internal.
 
 ### Render auto-deploy
