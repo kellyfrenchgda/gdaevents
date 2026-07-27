@@ -87,6 +87,78 @@ git config --global user.name "Kelly French"
 git config --global user.email "you@gooddrinks.com.au"
 ```
 
+
+---
+
+## Microsoft 365 SSO
+
+SSO is optional. Password login always works. When `AAD_CLIENT_ID` and `AAD_CLIENT_SECRET` are set,
+a **Sign in with Microsoft 365** button appears on the login page. Users who sign in via SSO are
+auto-provisioned with the `member` role; promote them in the People panel as needed.
+
+### Step 1 — Register the app in Microsoft Entra ID (Azure AD)
+
+1. Go to [portal.azure.com](https://portal.azure.com) → **Microsoft Entra ID** → **App registrations** → **New registration**.
+2. Name it `GDA Ticket Board` (or anything you like).
+3. Under **Supported account types**, choose:
+   - *Accounts in this organizational directory only* — if everyone is in one M365 tenant (recommended).
+   - *Accounts in any organizational directory* — if you have guests from other tenants.
+4. Under **Redirect URI**, choose **Web** and enter:
+   - Local dev: `http://localhost:3000/auth/sso/callback`
+   - Render: `https://YOUR-RENDER-APP.onrender.com/auth/sso/callback`
+   You can add both.
+5. Click **Register**.
+
+### Step 2 — Copy the credentials
+
+From the app registration overview page:
+- **Application (client) ID** → this is your `AAD_CLIENT_ID`
+- **Directory (tenant) ID** → this is your `AAD_TENANT_ID`
+
+Then go to **Certificates & secrets** → **New client secret**:
+- Description: `GDA Board`
+- Expires: 24 months
+- Copy the **Value** immediately (it's hidden after you leave the page) → this is your `AAD_CLIENT_SECRET`
+
+### Step 3 — Add API permissions
+
+In the app registration, go to **API permissions** → **Add a permission** → **Microsoft Graph** → **Delegated**:
+- `openid`
+- `profile`
+- `email`
+- `User.Read`
+
+Click **Grant admin consent** if you're the tenant admin. If not, ask your M365 admin to grant consent.
+
+### Step 4 — Set environment variables
+
+**On Render** — add these in the dashboard under Environment:
+
+| Key | Value |
+|---|---|
+| `AAD_CLIENT_ID` | Application (client) ID from step 2 |
+| `AAD_CLIENT_SECRET` | Client secret value from step 2 |
+| `AAD_TENANT_ID` | Directory (tenant) ID from step 2 |
+| `AAD_REDIRECT_URI` | `https://YOUR-APP.onrender.com/auth/sso/callback` |
+
+**Locally** — add them to your `.env` file.
+
+### Step 5 — Deploy and test
+
+Push to `main`. The Microsoft button appears on the login page automatically once the vars are set.
+First sign-in auto-creates a `member` account. An admin then promotes them in the People panel.
+
+### Notes
+
+- **Password login is never disabled.** The first admin account always uses a password; SSO users
+  can also be given a password by an admin if needed.
+- **Auto-provisioning** creates new accounts with the `member` role on first SSO sign-in.
+  An admin promotes them to `manager` or `admin` as needed.
+- **Tenant restriction** — if you use `AAD_TENANT_ID=common`, any Microsoft account can attempt
+  sign-in. Use your specific tenant ID to restrict to your organisation only.
+- **Secret rotation** — Entra client secrets expire. Set a calendar reminder to rotate before the
+  expiry date, or configure a certificate instead.
+
 ---
 
 ## Run locally (Windows PowerShell)

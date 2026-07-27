@@ -26,9 +26,21 @@
   </div>
 
   <div class="login-form">
+    <div id="ssoBlock" style="display:none;margin-bottom:24px">
+      <a id="ssoBtn" href="/auth/sso/login" class="btn wide" style="display:block;text-align:center;background:#0078d4;text-decoration:none;padding:12px;font-size:17px">
+        <svg style="vertical-align:middle;margin-right:8px" width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+        Sign in with Microsoft 365
+      </a>
+      <div style="display:flex;align-items:center;gap:10px;margin:18px 0 6px">
+        <span style="flex:1;height:1px;background:var(--rule)"></span>
+        <span style="font-size:12px;color:var(--ink-3);font-family:var(--mono);letter-spacing:.1em">OR</span>
+        <span style="flex:1;height:1px;background:var(--rule)"></span>
+      </div>
+    </div>
     <form class="login-card" id="form" autocomplete="on">
       <h2>Sign in</h2>
       <p class="sub">Use the account your admin set up for you.</p>
+      <div class="warn" id="urlWarn" role="alert"></div>
       <label class="f"><span>Email</span>
         <input class="f" id="email" type="email" name="email" autocomplete="username" required></label>
       <label class="f"><span>Password</span>
@@ -41,6 +53,28 @@
 </div>
 
 <script>
+(async () => {
+  // Show SSO button if configured
+  try {
+    const r = await fetch("/api/sso-config");
+    const d = await r.json();
+    if (d.sso_enabled) document.getElementById("ssoBlock").style.display = "";
+  } catch(e) {}
+
+  // Surface any error passed back from SSO redirect
+  const params = new URLSearchParams(location.search);
+  const err = params.get("error");
+  if (err) {
+    const w = document.getElementById("urlWarn");
+    const msgs = {
+      sso_not_configured: "Microsoft SSO is not configured yet. Sign in with your password.",
+      sso_session_expired: "The sign-in session expired. Please try again.",
+      no_email_from_microsoft: "Microsoft didn't return an email address. Contact your admin."
+    };
+    w.textContent = msgs[err] || ("Microsoft sign-in failed: " + err);
+  }
+})();
+
 document.getElementById("form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const warn = document.getElementById("warn");

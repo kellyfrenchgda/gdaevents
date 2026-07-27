@@ -28,3 +28,13 @@ services:
         sync: false
       - key: ADMIN_NAME
         sync: false
+      # --- Microsoft 365 SSO (optional) ---
+      # Leave blank/omit to disable SSO and use password login only.
+      - key: AAD_CLIENT_ID
+        sync: false
+      - key: AAD_CLIENT_SECRET
+        sync: false
+      - key: AAD_TENANT_ID
+        sync: false
+      - key: AAD_REDIRECT_URI
+        sync: false

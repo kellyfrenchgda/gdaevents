@@ -8,6 +8,7 @@ from flask import Flask, redirect, send_from_directory, url_for, session
 from .db import init_db
 from .auth import auth_bp
 from .api import api_bp
+from .sso import sso_bp, sso_enabled
 
 PUBLIC_DIR = Path(__file__).parent.parent / "public"
 
@@ -27,8 +28,18 @@ def create_app():
 
     init_db()
 
+    @app.context_processor
+    def _inject_sso():
+        return {"sso_enabled": sso_enabled()}
+
     app.register_blueprint(auth_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(sso_bp)
+
+    @app.get("/api/sso-config")
+    def sso_config():
+        from flask import jsonify
+        return jsonify(sso_enabled=sso_enabled())
 
     @app.get("/healthz")
     def health():
