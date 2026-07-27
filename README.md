@@ -20,9 +20,11 @@ Hobby workspace. Check Render's pricing page before you commit — rates move.
 
 ### 1. Put the code on GitHub
 
-The repo lives at **github.com/kellyfrenchgda/gdaevent**. The remote is already configured, so:
+The repo lives at **github.com/kellyfrenchgda/gdaevent**. The remote is already configured, so in
+PowerShell:
 
-```bash
+```powershell
+cd gda
 git push -u origin main
 ```
 
@@ -71,8 +73,9 @@ Deploy, open the URL, sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Then:
 
 - **Custom domain** — Settings → Custom Domains. TLS is issued automatically.
 - **Backups** — the disk isn't snapshotted on the Starter plan. To take a copy, open a shell on the
-  service and run `sqlite3 /var/data/board.db ".backup /tmp/board-backup.db"`, or just export CSV
-  from the board periodically.
+  service from the Render dashboard and run `sqlite3 /var/data/board.db ".backup /tmp/board-backup.db"`.
+  That shell is Linux, not PowerShell. Exporting CSV from the board periodically is the low-effort
+  alternative.
 
 ---
 
@@ -82,26 +85,67 @@ The repo is set up so every push is tested before Render picks it up.
 
 ### Push it to GitHub
 
+All commands below are PowerShell. Git itself behaves the same on Windows as anywhere else — it's
+the surrounding shell syntax that differs, so those parts are written for PowerShell throughout.
+
 The remote is set to `git@github.com:kellyfrenchgda/gdaevent.git` and the first commit is already
 made, so there's nothing to stage:
 
-```bash
+```powershell
+cd gda
 git push -u origin main
+```
+
+Check what you're about to push first if you like:
+
+```powershell
+git remote -v
+git log --oneline
+git status --short
 ```
 
 If `gdaevent` already has commits — a README created with the repo, for example — the push will be
 rejected. Pull them in first:
 
-```bash
+```powershell
 git pull --rebase origin main
 git push -u origin main
 ```
 
 Using HTTPS instead of SSH:
 
-```bash
+```powershell
 git remote set-url origin https://github.com/kellyfrenchgda/gdaevent.git
 ```
+
+**First push on a new machine.** If Git has never been configured, set your identity once:
+
+```powershell
+git config --global user.name "Kelly French"
+git config --global user.email "you@gooddrinks.com.au"
+```
+
+Over HTTPS, Git for Windows opens a browser sign-in on the first push and stores the credential in
+Windows Credential Manager. Over SSH, generate a key and add the public half to GitHub:
+
+```powershell
+ssh-keygen -t ed25519 -C "you@gooddrinks.com.au"
+Get-Content "$env:USERPROFILE\.ssh\id_ed25519.pub" | Set-Clipboard
+```
+
+Paste it at github.com/settings/keys, then test with `ssh -T git@github.com`.
+
+**Day to day.** Branch protection means you shouldn't push to `main` directly:
+
+```powershell
+git checkout -b add-cost-per-seat
+# make changes
+git add -A
+git commit -m "Track cost per seat"
+git push -u origin add-cost-per-seat
+```
+
+Then open a pull request on GitHub and merge once CI is green.
 
 ### What runs on every push
 
@@ -138,13 +182,56 @@ Never commit `.env`, and keep `ADMIN_PASSWORD` and `SESSION_SECRET` in the Rende
 
 ---
 
-## Run it locally
+## Run it locally (Windows PowerShell)
 
-```bash
+You'll need [Node 20 or newer](https://nodejs.org/) and [Git for Windows](https://git-scm.com/download/win).
+
+```powershell
+cd gda
 npm install
-cp .env.example .env      # edit the values
-set -a; source .env; set +a
-npm start                 # http://localhost:3000
+Copy-Item .env.example .env
+notepad .env                 # fill in the values, then save and close
+```
+
+PowerShell has no equivalent of `source`, so load `.env` into the session like this:
+
+```powershell
+Get-Content .env | Where-Object { $_ -match '^\s*[^#\s].*=' } | ForEach-Object {
+  $name, $value = $_ -split '=', 2
+  [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), 'Process')
+}
+npm start
+```
+
+Then open http://localhost:3000 and sign in with the `ADMIN_EMAIL` and `ADMIN_PASSWORD` you put in
+`.env`. Stop the server with `Ctrl+C`.
+
+Those variables only last for the current PowerShell window — reload them each time you open a new
+one. To set just one by hand: `$env:SEED_DEMO = "false"`.
+
+**Starting over.** The local database is a file. Delete it and the next start rebuilds from scratch,
+including a fresh admin account:
+
+```powershell
+Remove-Item -Recurse -Force .\data
+```
+
+**If `npm install` fails on `better-sqlite3`,** it couldn't find a prebuilt binary for your Node
+version and tried to compile instead. Two fixes: re-run the Node.js installer and tick **Tools for
+Native Modules**, or install **Desktop development with C++** from the Visual Studio Build Tools
+installer. Then delete `node_modules` and try again:
+
+```powershell
+Remove-Item -Recurse -Force .\node_modules
+npm install
+```
+
+This only affects local development. Render builds on Linux, where the prebuilt binary is used.
+
+### Running the tests
+
+```powershell
+npm test
 ```
 
 ---
