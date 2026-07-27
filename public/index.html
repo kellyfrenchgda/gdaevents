@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GDA Ticket Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-in">
+    <div class="wordmark">
+      <div class="eyebrow">Good Drinks Australia · Sponsorship &amp; Events</div>
+      <h1>The Ticket Board</h1>
+    </div>
+    <div class="tally">
+      <div class="tally-item"><div class="n" id="tEvents">—</div><div class="l">Upcoming</div></div>
+      <div class="tally-item"><div class="n hot" id="tLeft">—</div><div class="l">Seats left</div></div>
+      <div class="tally-item"><div class="n" id="tAlloc">—</div><div class="l">Allocated</div></div>
+    </div>
+    <div class="whoami">
+      <b id="meName">…</b><span class="role" id="meRole"></span>
+      <button class="linkish" id="btnPassword">Password</button>
+      <button class="linkish" id="btnPeople" hidden>People</button>
+      <button class="linkish" id="btnLogout">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="controls-in">
+    <div class="search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.7"/><path d="M11 11l4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      <input id="q" type="search" placeholder="Search team, venue, brand or guest" aria-label="Search events">
+    </div>
+    <select class="filter" id="fState" aria-label="Filter by state"><option value="">All states</option></select>
+    <select class="filter" id="fSport" aria-label="Filter by sport"><option value="">All sports</option></select>
+    <select class="filter" id="fBrand" aria-label="Filter by brand"><option value="">All brands</option></select>
+    <label class="toggle"><input type="checkbox" id="fPast"> Show past</label>
+    <button class="btn ghost sm" id="btnExport">Export CSV</button>
+    <button class="btn" id="btnAdd" hidden>Add event</button>
+  </div>
+</div>
+
+<main id="board" aria-live="polite"></main>
+
+<div class="scrim" id="scrim"></div>
+
+<aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-head" id="sheetHead">
+    <div class="row1">
+      <div>
+        <div class="when" id="sheetWhen"></div>
+        <h2 id="sheetTitle"></h2>
+      </div>
+      <button class="x" id="btnCloseSheet" aria-label="Close event">✕</button>
+    </div>
+  </div>
+  <div class="sheet-body" id="sheetBody"></div>
+  <div class="sheet-foot" id="sheetFoot">
+    <button class="btn ghost sm" id="btnEdit">Edit event</button>
+    <button class="btn danger sm" id="btnDelete" style="margin-left:auto">Delete event</button>
+  </div>
+</aside>
+
+<!-- event form -->
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-scrim" id="modalScrim"></div>
+  <div class="modal-card">
+    <div class="modal-head"><h2 id="modalTitle">Add event</h2></div>
+    <div class="modal-body">
+      <div class="seg" id="typeSeg">
+        <button type="button" data-type="sponsorship" class="on">Sponsorship fixture</button>
+        <button type="button" data-type="general">General event</button>
+      </div>
+      <label class="f"><span id="lblName">Fixture or event name</span><input class="f" id="mName" placeholder="e.g. Round 22 — Crows v Dockers"></label>
+      <div class="grid2">
+        <label class="f"><span>Date</span><input class="f" id="mDate" type="date"></label>
+        <label class="f"><span>Start time</span><input class="f" id="mTime" type="time"></label>
+      </div>
+      <div class="grid2 sponsonly">
+        <label class="f"><span>Sport</span><select class="f" id="mSport"></select></label>
+        <label class="f"><span>Team</span><input class="f" id="mTeam" placeholder="e.g. Adelaide Crows"></label>
+      </div>
+      <label class="f sponsonly"><span>Opponent</span><input class="f" id="mOpp" placeholder="e.g. Fremantle Dockers"></label>
+      <div class="grid2">
+        <label class="f"><span>State</span><select class="f" id="mState"></select></label>
+        <label class="f"><span>Venue</span><input class="f" id="mVenue" placeholder="e.g. Adelaide Oval"></label>
+      </div>
+      <div class="grid2">
+        <label class="f"><span>Major brand</span><select class="f" id="mBrand"></select></label>
+        <label class="f"><span>Total seats / tickets</span><input class="f" id="mCap" type="number" min="0" step="1" placeholder="24"></label>
+      </div>
+      <label class="f"><span>Notes</span><textarea class="f" id="mNotes" placeholder="Suite location, dress code, arrival time, host on the night…"></textarea></label>
+      <div class="warn" id="mWarn" role="alert"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="btnCancel">Cancel</button>
+      <button class="btn amber" id="btnSave">Save event</button>
+    </div>
+  </div>
+</div>
+
+<!-- people -->
+<div class="modal" id="people" role="dialog" aria-modal="true" aria-labelledby="peopleTitle">
+  <div class="modal-scrim" id="peopleScrim"></div>
+  <div class="modal-card">
+    <div class="modal-head"><h2 id="peopleTitle">People</h2></div>
+    <div class="modal-body">
+      <div id="peopleList"></div>
+      <div class="miniform">
+        <div class="grid2">
+          <label class="f"><span>Name</span><input class="f" id="uName" placeholder="Jordan Blake"></label>
+          <label class="f"><span>Email</span><input class="f" id="uEmail" type="email" placeholder="jordan@gooddrinks.com.au"></label>
+        </div>
+        <div class="grid2" style="margin-top:10px">
+          <label class="f"><span>Starting password</span><input class="f" id="uPass" type="text" placeholder="10+ characters"></label>
+          <label class="f"><span>Role</span><select class="f" id="uRole">
+            <option value="member">Member — allocate seats</option>
+            <option value="admin">Admin — manage events and people</option>
+          </select></label>
+        </div>
+        <div class="warn" id="uWarn" role="alert"></div>
+        <button class="btn amber sm" id="btnAddUser" style="margin-top:12px">Add person</button>
+        <div class="hint">Share the starting password directly and ask them to change it after their first sign-in.</div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn ghost" id="btnPeopleClose">Close</button></div>
+  </div>
+</div>
+
+<!-- password -->
+<div class="modal" id="pwd" role="dialog" aria-modal="true" aria-labelledby="pwdTitle">
+  <div class="modal-scrim" id="pwdScrim"></div>
+  <div class="modal-card" style="max-width:440px">
+    <div class="modal-head"><h2 id="pwdTitle">Change password</h2></div>
+    <div class="modal-body">
+      <label class="f"><span>Current password</span><input class="f" id="pCurrent" type="password" autocomplete="current-password"></label>
+      <label class="f"><span>New password</span><input class="f" id="pNext" type="password" autocomplete="new-password" placeholder="10+ characters"></label>
+      <div class="warn" id="pWarn" role="alert"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="btnPwdCancel">Cancel</button>
+      <button class="btn amber" id="btnPwdSave">Change password</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+<script src="/js/app.js"></script>
+</body>
+</html>

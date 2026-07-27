@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · GDA Ticket Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-art">
+    <div>
+      <div class="eyebrow">Good Drinks Australia · Sponsorship &amp; Events</div>
+      <h1>The Ticket<br>Board</h1>
+    </div>
+    <div>
+      <p>Every fixture, every seat, one place. Sign in to see what's still available.</p>
+      <div class="taps" aria-hidden="true">
+        <i style="background:#0B4F8A"></i><i style="background:#F5B301"></i><i style="background:#E2571F"></i>
+        <i style="background:#D81E5B"></i><i style="background:#1E7A45"></i><i style="background:#00A39B"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-form">
+    <form class="login-card" id="form" autocomplete="on">
+      <h2>Sign in</h2>
+      <p class="sub">Use the account your admin set up for you.</p>
+      <label class="f"><span>Email</span>
+        <input class="f" id="email" type="email" name="email" autocomplete="username" required></label>
+      <label class="f"><span>Password</span>
+        <input class="f" id="password" type="password" name="password" autocomplete="current-password" required></label>
+      <div class="warn" id="warn" role="alert"></div>
+      <button class="btn wide" id="submit" type="submit" style="margin-top:16px">Sign in</button>
+      <p class="hint">Locked out? Ask an admin to reset your password.</p>
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const warn = document.getElementById("warn");
+  const btn = document.getElementById("submit");
+  warn.textContent = "";
+  btn.disabled = true;
+  btn.textContent = "Signing in…";
+  try {
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Sign-in failed. Try again.");
+    location.href = "/";
+  } catch (err) {
+    warn.textContent = err.message;
+    btn.disabled = false;
+    btn.textContent = "Sign in";
+  }
+});
+</script>
+</body>
+</html>
