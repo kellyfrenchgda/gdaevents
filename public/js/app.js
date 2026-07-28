@@ -30,6 +30,10 @@ const allocated = (ev) => (ev.allocations || []).reduce((n, a) => n + (Number(a.
 const remaining = (ev) => Math.max(0, (Number(ev.capacity) || 0) - allocated(ev));
 const isPast = (ev) => new Date(ev.start).getTime() < Date.now();
 const brandColour = (b) => BRAND_COLOURS[b] || "#7A8F9C";
+
+const getEventType = (name) => (reference.event_types || []).find(t => t.name === name) || {};
+const isSportType  = (name) => !!(getEventType(name).is_sport);
+
 const hasRole = (r) => me && Array.isArray(me.roles) && me.roles.includes(r);
 const isAdmin   = () => hasRole("admin");
 const isManager = () => hasRole("manager") || hasRole("admin");
@@ -159,7 +163,6 @@ function eventRow(ev, i) {
   const left = remaining(ev);
   const pct = cap ? Math.min(100, Math.round((used / cap) * 100)) : 0;
   const cls = left === 0 && cap > 0 ? "out" : cap && left / cap <= 0.25 ? "low" : "";
-  const isGen = ev.type === "general";
   const past = isPast(ev);
   const line2 = isGen
     ? esc(ev.venue || "Venue TBC")
@@ -171,12 +174,11 @@ function eventRow(ev, i) {
       '<div class="event-top">' +
         '<span class="time">' + esc(fmtTime(ev.start)) + "</span>" +
         '<span class="tag state">' + esc(ev.state || "—") + "</span>" +
-        (isGen ? '<span class="tag general">General event</span>'
-               : '<span class="tag">' + esc(ev.sport || "Sport TBC") + "</span>") +
+        '<span class="tag' + (isSportType(ev.type) ? "" : " general") + '">' + esc(ev.type || "Event") + '</span>' +
         (past ? '<span class="tag">Past</span>' : "") +
       "</div>" +
-      '<div class="title">' + esc(isGen ? ev.name : ev.team || ev.name) + "</div>" +
-      '<div class="sub">' + (isGen ? line2 : esc(ev.name) + (line2 ? " · " + line2 : "")) + "</div>" +
+      '<div class="title">' + esc(ev.name) + "</div>" +
+      '<div class="sub">' + (isSportType(ev.type) && ev.team ? esc(ev.team) + (line2 ? " · " + line2 : "") : line2) + "</div>" +
       '<div class="brandline"><span class="dot"></span>Major brand <b>' + esc(ev.brand || "Unassigned") + "</b></div>" +
       '<div class="gauge-wrap">' +
         '<div class="gauge' + (left === 0 && cap ? " full" : "") + '" data-pct="' + pct +
@@ -203,15 +205,19 @@ function openSheet(id) {
 
   $("#sheetHead").style.setProperty("--keel", brandColour(ev.brand));
   $("#sheetWhen").textContent = parts.full + " · " + fmtTime(ev.start);
-  $("#sheetTitle").textContent = isGen ? ev.name : ev.team || ev.name;
+  $("#sheetTitle").textContent = ev.name;
 
+  const evIsSport = isSportType(ev.type);
   const rows = [
-    ["Start", parts.full + ", " + fmtTime(ev.start)],
-    ["State", ev.state || "—"],
-    ["Sport", isGen ? "General event" : ev.sport || "—"],
-    ["Team", isGen ? "—" : ev.team || "—"],
-    ["Fixture", isGen ? ev.name : ev.opponent ? ev.team + " v " + ev.opponent : ev.name],
-    ["Venue", ev.venue || "—"]
+    ["Start",      parts.full + ", " + fmtTime(ev.start)],
+    ["Event type", ev.type || "—"],
+    ["State",      ev.state || "—"],
+    ...(evIsSport ? [
+      ["Sport",   ev.sport || "—"],
+      ["Team",    ev.team  || "—"],
+      ["Fixture", ev.opponent ? ev.team + " v " + ev.opponent : ev.name],
+    ] : []),
+    ["Venue", ev.venue || "—"],
   ];
 
   const allocHtml = (ev.allocations || []).length
@@ -353,19 +359,24 @@ async function flipStatus(ev, allocId) {
 
 /* ---------------- event form ---------------- */
 
-function setFormType(t) {
-  formType = t;
-  document.querySelectorAll("#typeSeg button").forEach((b) => b.classList.toggle("on", b.dataset.type === t));
-  document.querySelectorAll(".sponsonly").forEach((el) => { el.style.display = t === "general" ? "none" : ""; });
-  $("#lblName").textContent = t === "general" ? "Event name" : "Fixture or event name";
+function toggleSportFields(isSport) {
+  document.querySelectorAll(".sponsonly").forEach(el => { el.style.display = isSport ? "" : "none"; });
+  $("#lblName").textContent = isSport ? "Fixture or event name" : "Event name";
 }
 
 function openForm(id) {
   editingId = id;
   const ev = id ? events.find((e) => e.id === id) : null;
   $("#modalTitle").textContent = ev ? "Edit event" : "Add event";
-  setFormType(ev ? ev.type || "sponsorship" : "sponsorship");
   $("#mWarn").textContent = "";
+  // Set event type dropdown
+  const etSel2 = $("#mEventType");
+  if (etSel2 && etSel2.options.length) {
+    const savedType = ev ? (ev.type || "") : "";
+    const matchOpt = Array.from(etSel2.options).find(o => o.value === savedType);
+    etSel2.value = matchOpt ? savedType : etSel2.options[0].value;
+    toggleSportFields(isSportType(etSel2.value));
+  }
 
   const d = ev && ev.start ? new Date(ev.start) : null;
   const pad = (n) => String(n).padStart(2, "0");
@@ -393,18 +404,22 @@ async function saveForm() {
   const btn = $("#btnSave");
   btn.disabled = true;
   try {
+    const etSelS = $("#mEventType");
+    const selectedType = etSelS ? etSelS.value : "Sport";
+    const selectedIsSport = isSportType(selectedType);
     const payload = {
       name: $("#mName").value.trim(),
-      type: formType,
+      type: selectedType,
+      is_sport: selectedIsSport,
       start: ($("#mDate").value || "") + "T" + ($("#mTime").value || "00:00"),
       state: $("#mState").value,
       venue: $("#mVenue").value.trim(),
       brand: $("#mBrand").value,
       capacity: Number($("#mCap").value) || 0,
       notes: $("#mNotes").value.trim(),
-      sport: formType === "general" ? "" : $("#mSport").value,
-      team: formType === "general" ? "" : $("#mTeam").value.trim(),
-      opponent: formType === "general" ? "" : $("#mOpp").value.trim()
+      sport: selectedIsSport ? $("#mSport").value : "",
+      team: selectedIsSport ? $("#mTeam").value.trim() : "",
+      opponent: selectedIsSport ? $("#mOpp").value.trim() : ""
     };
     if (!$("#mDate").value) throw new Error("Pick a date — the board is ordered by start time.");
 
@@ -671,6 +686,68 @@ async function drawBrands(body) {
   };
 }
 
+
+/* ── Event Types tab ────────────────────────────────────────────────────── */
+
+async function drawEventTypes(body) {
+  const { event_types } = await api("GET", "/admin/event-types");
+
+  const list = event_types.map(et =>
+    '<div class="ref-row">' +
+      '<div class="rname">' + esc(et.name) +
+        (et.is_sport ? '<span class="rmeta">· sport event</span>' : '<span class="rmeta">· general</span>') +
+      '</div>' +
+      '<button class="rm" data-rm-et="' + et.id + '" title="Delete event type">✕</button>' +
+    '</div>'
+  ).join("");
+
+  body.innerHTML = '<div style="padding:0 0 14px">' + (list || '<p class="hint">No event types yet.</p>') + '</div>' +
+    '<div class="miniform">' +
+      '<div class="grid2">' +
+        '<label class="f"><span>Type name</span><input class="f" id="etName" placeholder="e.g. Concert"></label>' +
+        '<label class="f"><span>Shows team fields?</span>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-top:10px">' +
+            '<input type="checkbox" id="etIsSport" style="accent-color:var(--focus);width:16px;height:16px">' +
+            '<span style="font-size:14px">Yes — show team, opponent &amp; sport fields</span>' +
+          '</div>' +
+        '</label>' +
+      '</div>' +
+      '<div class="warn" id="etWarn" role="alert"></div>' +
+      '<button class="btn amber sm" id="btnAddEt" style="margin-top:12px">Add event type</button>' +
+      '<div class="hint" style="margin-top:8px">The event form shows team and opponent fields only for types marked as sport events.</div>' +
+    '</div>';
+
+  body.querySelectorAll("[data-rm-et]").forEach(b => {
+    b.onclick = async () => {
+      if (!confirm("Delete this event type?")) return;
+      try {
+        await api("DELETE", "/admin/event-types/" + b.dataset.rmEt);
+        reference = await api("GET", "/reference");
+        reference.event_types = reference.event_types || [];
+        fillSelects();
+        await drawAdminTab(); toast("Event type removed");
+      } catch(err) { toast(err.message, true); }
+    };
+  });
+
+  body.querySelector("#btnAddEt").onclick = async () => {
+    const warn = body.querySelector("#etWarn");
+    warn.textContent = "";
+    try {
+      await api("POST", "/admin/event-types", {
+        name: body.querySelector("#etName").value.trim(),
+        is_sport: body.querySelector("#etIsSport").checked,
+      });
+      body.querySelector("#etName").value = "";
+      body.querySelector("#etIsSport").checked = false;
+      reference = await api("GET", "/reference");
+      reference.event_types = reference.event_types || [];
+      fillSelects();
+      await drawAdminTab(); toast("Event type added");
+    } catch(err) { warn.textContent = err.message; }
+  };
+}
+
 /* ---------------- csv ---------------- */
 
 function exportCsv() {
@@ -729,6 +806,18 @@ function fillSelects() {
   addForm($("#mState"),   "— State —",   reference.states);
   addForm($("#mSport"),   "— Sport —",   reference.sports);
   addForm($("#mBrand"),   "— Brand —",   reference.brands.map ? reference.brands : []);
+  // Event type dropdown
+  const etSel = $("#mEventType");
+  if (etSel) {
+    etSel.innerHTML = "";
+    (reference.event_types || []).forEach(et => {
+      const o = document.createElement("option");
+      o.value = et.name; o.textContent = et.name;
+      o.dataset.isSport = et.is_sport ? "1" : "0";
+      etSel.appendChild(o);
+    });
+    etSel.onchange = () => toggleSportFields(isSportType(etSel.value));
+  }
 }
 
 function wire() {
@@ -758,9 +847,7 @@ function wire() {
       toast("Demo data reloaded");
     } catch(err) { toast(err.message, true); }
   };
-  document.querySelectorAll(".admin-tab").forEach(b => {
-    b.onclick = () => openAdmin(b.dataset.tab);
-  });
+  document.querySelectorAll(".admin-tab").forEach(b => { b.onclick = () => openAdmin(b.dataset.tab); });
 
 
   $("#btnPassword").onclick = () => {
@@ -805,6 +892,7 @@ function wire() {
 
   reference = (await api("GET", "/reference"));
   reference.teams = reference.teams || [];
+  reference.event_types = reference.event_types || [];
   // Explicit defaults — all filters open, past events hidden
   filters.q = ""; filters.state = ""; filters.sport = ""; filters.brand = ""; filters.past = false;
   fillSelects();

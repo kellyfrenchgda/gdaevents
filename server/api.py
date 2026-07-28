@@ -44,9 +44,10 @@ def _event_with_allocs(con, event_id):
 @require_auth
 def reference():
     with get_db() as con:
-        brands = _get_brands(con)
-        teams  = [dict(r) for r in con.execute("SELECT * FROM ref_teams ORDER BY sort_order,name").fetchall()]
-    return jsonify(states=STATES, sports=SPORTS, brands=brands, teams=teams)
+        brands      = _get_brands(con)
+        teams       = [dict(r) for r in con.execute("SELECT * FROM ref_teams ORDER BY sort_order,name").fetchall()]
+        event_types = [dict(r) for r in con.execute("SELECT * FROM ref_event_types ORDER BY sort_order,name").fetchall()]
+    return jsonify(states=STATES, sports=SPORTS, brands=brands, teams=teams, event_types=event_types)
 
 
 # ---------- events ----------

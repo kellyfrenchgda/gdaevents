@@ -159,6 +159,71 @@ def delete_team(team_id):
     return jsonify(ok=True)
 
 
+
+# ─── event types ──────────────────────────────────────────────────────────────
+
+@admin_bp.get("/api/admin/event-types")
+@require_auth
+@require_admin
+def list_event_types():
+    with get_db() as con:
+        rows = con.execute("SELECT * FROM ref_event_types ORDER BY sort_order,name").fetchall()
+    return jsonify(event_types=[dict(r) for r in rows])
+
+
+@admin_bp.post("/api/admin/event-types")
+@require_auth
+@require_admin
+def create_event_type():
+    data = request.get_json(silent=True) or {}
+    name     = _str(data.get("name"))
+    is_sport = 1 if data.get("is_sport") else 0
+    if not name:
+        return jsonify(error="Event type name is required."), 400
+    with get_db() as con:
+        if con.execute("SELECT 1 FROM ref_event_types WHERE name=?", (name,)).fetchone():
+            return jsonify(error="An event type with that name already exists."), 409
+        max_order = con.execute("SELECT COALESCE(MAX(sort_order),0) FROM ref_event_types").fetchone()[0]
+        eid = uid()
+        con.execute(
+            "INSERT INTO ref_event_types (id,name,is_sport,sort_order) VALUES (?,?,?,?)",
+            (eid, name, is_sport, max_order + 1)
+        )
+        row = con.execute("SELECT * FROM ref_event_types WHERE id=?", (eid,)).fetchone()
+    return jsonify(event_type=dict(row)), 201
+
+
+@admin_bp.patch("/api/admin/event-types/<et_id>")
+@require_auth
+@require_admin
+def update_event_type(et_id):
+    data = request.get_json(silent=True) or {}
+    with get_db() as con:
+        existing = con.execute("SELECT * FROM ref_event_types WHERE id=?", (et_id,)).fetchone()
+        if not existing:
+            return jsonify(error="Event type not found."), 404
+        name     = _str(data.get("name", existing["name"]))
+        is_sport = 1 if data.get("is_sport") else 0
+        if not name:
+            return jsonify(error="Event type name is required."), 400
+        dup = con.execute("SELECT 1 FROM ref_event_types WHERE name=? AND id!=?", (name, et_id)).fetchone()
+        if dup:
+            return jsonify(error="Another event type already has that name."), 409
+        con.execute("UPDATE ref_event_types SET name=?,is_sport=? WHERE id=?", (name, is_sport, et_id))
+        row = con.execute("SELECT * FROM ref_event_types WHERE id=?", (et_id,)).fetchone()
+    return jsonify(event_type=dict(row))
+
+
+@admin_bp.delete("/api/admin/event-types/<et_id>")
+@require_auth
+@require_admin
+def delete_event_type(et_id):
+    with get_db() as con:
+        cur = con.execute("DELETE FROM ref_event_types WHERE id=?", (et_id,))
+        if cur.rowcount == 0:
+            return jsonify(error="Event type not found."), 404
+    return jsonify(ok=True)
+
 # ─── demo data ────────────────────────────────────────────────────────────────
 
 @admin_bp.post("/api/admin/reseed")

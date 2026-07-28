@@ -88,10 +88,7 @@
   <div class="modal-card">
     <div class="modal-head"><h2 id="modalTitle">Add event</h2></div>
     <div class="modal-body">
-      <div class="seg" id="typeSeg">
-        <button type="button" data-type="sponsorship" class="on">Sponsorship fixture</button>
-        <button type="button" data-type="general">General event</button>
-      </div>
+      <label class="f"><span>Event type</span><select class="f" id="mEventType"></select></label>
       <label class="f"><span id="lblName">Fixture or event name</span><input class="f" id="mName" placeholder="e.g. Round 22 — Crows v Dockers"></label>
       <div class="grid2">
         <label class="f"><span>Date</span><input class="f" id="mDate" type="date"></label>
@@ -132,6 +129,7 @@
       <button class="admin-tab on" data-tab="staff">Staff access</button>
       <button class="admin-tab" data-tab="teams">Sporting teams</button>
       <button class="admin-tab" data-tab="brands">Brands</button>
+      <button class="admin-tab" data-tab="event-types">Event Types</button>
     </div>
     <div class="modal-body" id="adminBody" style="min-height:380px"></div>
     <div class="modal-foot" style="justify-content:space-between">

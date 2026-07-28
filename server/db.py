@@ -85,6 +85,13 @@ CREATE TABLE IF NOT EXISTS ref_teams (
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS ref_event_types (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL UNIQUE,
+    is_sport   INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS ref_brands (
     id         TEXT PRIMARY KEY,
     name       TEXT NOT NULL UNIQUE,
@@ -153,6 +160,13 @@ DEMO = [
 
 
 
+
+DEFAULT_EVENT_TYPES = [
+    ("Sport",      1),
+    ("Concert",    0),
+    ("Trade Conf", 0),
+]
+
 DEFAULT_BRANDS = [
     ("Gage Roads Brew Co",      "#0B4F8A"),
     ("Single Fin",              "#F5B301"),
@@ -182,6 +196,12 @@ DEFAULT_TEAMS = [
 
 def _seed_reference():
     with get_db() as con:
+        if con.execute("SELECT COUNT(*) FROM ref_event_types").fetchone()[0] == 0:
+            for i, (name, is_sport) in enumerate(DEFAULT_EVENT_TYPES):
+                con.execute(
+                    "INSERT OR IGNORE INTO ref_event_types (id,name,is_sport,sort_order) VALUES (?,?,?,?)",
+                    (uid(), name, is_sport, i)
+                )
         if con.execute("SELECT COUNT(*) FROM ref_brands").fetchone()[0] == 0:
             for i, (name, colour) in enumerate(DEFAULT_BRANDS):
                 con.execute(
