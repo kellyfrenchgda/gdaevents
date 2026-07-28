@@ -103,7 +103,7 @@ CREATE INDEX IF NOT EXISTS idx_events_start ON events(start);
 """
 
 DEMO = [
-    dict(name="Round 22 — Crows v Dockers", type="sponsorship", start="2026-08-08T16:35",
+    dict(name="Round 22 — Crows v Dockers", type="Sport", start="2026-08-08T16:35",
          state="SA", sport="AFL", team="Adelaide Crows", opponent="Fremantle Dockers",
          venue="Adelaide Oval", brand="Gage Roads Brew Co", capacity=24,
          notes="Riverbank Stand corporate suite. Guests to arrive from 3:45pm.",
@@ -112,7 +112,7 @@ DEMO = [
              dict(name="Dean Whitmore", org="Adelaide Oval F&B", seats=2, status="confirmed", note=""),
              dict(name="Sales team (SA)", org="Internal", seats=6, status="pending", note="Split across two reps"),
          ]),
-    dict(name="Western Derby 60", type="sponsorship", start="2026-08-15T19:25",
+    dict(name="Western Derby 60", type="Sport", start="2026-08-15T19:25",
          state="WA", sport="AFL", team="Fremantle Dockers", opponent="West Coast Eagles",
          venue="Optus Stadium", brand="Single Fin", capacity=40,
          notes="Two adjoining suites, level 4. Single Fin tap takeover in the members bar.",
@@ -121,7 +121,7 @@ DEMO = [
              dict(name="Tash Bouwer", org="The Aviary", seats=6, status="confirmed", note="Venue partner"),
              dict(name="Josh Nathan", org="Coles Liquor", seats=4, status="pending", note="Awaiting confirmation"),
          ]),
-    dict(name="Trade Showcase — Spring range", type="general", start="2026-09-03T17:30",
+    dict(name="Trade Showcase — Spring range", type="Trade Conf", start="2026-09-03T17:30",
          state="WA", sport="", team="", opponent="", venue="Gage Roads Freo",
          brand="Good Drinks (house)", capacity=120,
          notes="Full portfolio tasting for on-premise accounts. Food from 6pm.",
@@ -129,30 +129,30 @@ DEMO = [
              dict(name="On-premise WA list", org="Trade invite — batch 1", seats=64, status="confirmed", note=""),
              dict(name="Brewery team", org="Internal", seats=12, status="confirmed", note=""),
          ]),
-    dict(name="Round 5 — Glory v Victory", type="sponsorship", start="2026-10-24T19:45",
+    dict(name="Round 5 — Glory v Victory", type="Sport", start="2026-10-24T19:45",
          state="WA", sport="Football", team="Perth Glory", opponent="Melbourne Victory",
          venue="HBF Park", brand="Alby", capacity=20, notes="Alby branded terrace. Casual dress.",
          allocations=[dict(name="Andrea Silvestri", org="Independent retail cluster", seats=5, status="pending", note="")]),
-    dict(name="Mango Festival activation", type="general", start="2026-11-21T14:00",
+    dict(name="Mango Festival activation", type="Concert", start="2026-11-21T14:00",
          state="WA", sport="", team="", opponent="", venue="Matso's Broome Brewery",
          brand="Matso's Broome Brewery", capacity=60,
          notes="Two-day activation. Ticket count is day one only.", allocations=[]),
-    dict(name="BBL — Sixers v Scorchers", type="sponsorship", start="2026-12-18T19:15",
+    dict(name="BBL — Sixers v Scorchers", type="Sport", start="2026-12-18T19:15",
          state="NSW", sport="Cricket", team="Sydney Sixers", opponent="Perth Scorchers",
          venue="Sydney Cricket Ground", brand="Gage Roads Brew Co", capacity=30,
          notes="Noble Stand hospitality. Exclusive pourage across the ground.",
          allocations=[dict(name="Marcus Tan", org="Coles Liquor NSW", seats=6, status="confirmed", note="")]),
-    dict(name="BBL — Renegades v Hurricanes", type="sponsorship", start="2027-01-09T19:15",
+    dict(name="BBL — Renegades v Hurricanes", type="Sport", start="2027-01-09T19:15",
          state="VIC", sport="Cricket", team="Melbourne Renegades", opponent="Hobart Hurricanes",
          venue="Marvel Stadium", brand="Atomic Beer Project", capacity=18, notes="", allocations=[]),
-    dict(name="Perth SVNS", type="sponsorship", start="2027-01-30T11:00",
+    dict(name="Perth SVNS", type="Sport", start="2027-01-30T11:00",
          state="WA", sport="Rugby Union", team="Perth SVNS", opponent="",
          venue="HBF Park", brand="Matso's Broome Brewery", capacity=50,
          notes="Signage, hospitality and activation rights across the tournament weekend.", allocations=[]),
-    dict(name="Round 14 — Broncos v Cowboys", type="sponsorship", start="2027-02-13T17:30",
+    dict(name="Round 14 — Broncos v Cowboys", type="Sport", start="2027-02-13T17:30",
          state="QLD", sport="Rugby League", team="Brisbane Broncos", opponent="North Queensland Cowboys",
          venue="Suncorp Stadium", brand="Miller Chill", capacity=16, notes="", allocations=[]),
-    dict(name="Round 18 — Crows v Power", type="sponsorship", start="2026-07-12T15:20",
+    dict(name="Round 18 — Crows v Power", type="Sport", start="2026-07-12T15:20",
          state="SA", sport="AFL", team="Adelaide Crows", opponent="Port Adelaide",
          venue="Adelaide Oval", brand="Hello Sunshine", capacity=24, notes="Completed — all seats used.",
          allocations=[dict(name="SA trade guests", org="Mixed retail + on-premise", seats=24, status="confirmed", note="")]),
@@ -215,11 +215,20 @@ def _seed_reference():
                     (uid(), name, sport, state, i)
                 )
 
+
+def _migrate_event_types():
+    """One-time migration: rename legacy sponsorship/general type values to new names."""
+    with get_db() as con:
+        con.execute("UPDATE events SET type='Sport'      WHERE type='sponsorship'")
+        con.execute("UPDATE events SET type='Trade Conf' WHERE type='general' AND (name LIKE '%Trade%' OR name LIKE '%Conf%' OR name LIKE '%Showcase%')")
+        con.execute("UPDATE events SET type='Concert'    WHERE type='general'")
+
 def init_db():
     with get_db() as con:
         con.executescript(SCHEMA)
 
     _seed_reference()
+    _migrate_event_types()
     _bootstrap_admin()
     _seed_demo()
 
@@ -252,7 +261,7 @@ def force_reseed():
     with get_db() as con:
         con.execute("DELETE FROM allocations")
         con.execute("DELETE FROM events")
-    # Temporarily override env to allow seed
+    _seed_reference()   # ensure event types exist before seeding events
     orig = os.environ.get("SEED_DEMO", "")
     os.environ["SEED_DEMO"] = "true"
     _seed_demo()

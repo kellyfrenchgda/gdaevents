@@ -164,9 +164,10 @@ function eventRow(ev, i) {
   const pct = cap ? Math.min(100, Math.round((used / cap) * 100)) : 0;
   const cls = left === 0 && cap > 0 ? "out" : cap && left / cap <= 0.25 ? "low" : "";
   const past = isPast(ev);
-  const line2 = isGen
-    ? esc(ev.venue || "Venue TBC")
-    : esc([ev.opponent ? "v " + ev.opponent : "", ev.venue].filter(Boolean).join(" · "));
+  const evIsSportRow = isSportType(ev.type);
+  const line2 = evIsSportRow
+    ? esc([ev.opponent ? "v " + ev.opponent : "", ev.venue].filter(Boolean).join(" · "))
+    : esc(ev.venue || "Venue TBC");
 
   return (
     '<button class="event' + (past ? " past" : "") + '" data-id="' + ev.id +
@@ -200,7 +201,6 @@ function openSheet(id) {
   const used = allocated(ev);
   const left = remaining(ev);
   const parts = fmtDayParts(ev.start);
-  const isGen = ev.type === "general";
   const sheetEv = ev;  // keep reference for run sheet button
 
   $("#sheetHead").style.setProperty("--keel", brandColour(ev.brand));
