@@ -727,8 +727,6 @@ function wire() {
   $("#btnAdd").onclick = () => openForm(null);
   $("#btnCloseSheet").onclick = closeSheet;
   $("#scrim").onclick = closeSheet;
-  $("#btnEdit").onclick = () => openForm(selectedId);
-  $("#btnDelete").onclick = deleteEvent;
   $("#btnCancel").onclick = closeForm;
   $("#modalScrim").onclick = closeForm;
   $("#btnSave").onclick = saveForm;
