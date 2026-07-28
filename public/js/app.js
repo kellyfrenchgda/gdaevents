@@ -383,8 +383,12 @@ function openForm(id) {
   $("#mName").value = ev ? ev.name || "" : "";
   $("#mDate").value = d && !isNaN(d) ? d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) : "";
   $("#mTime").value = d && !isNaN(d) ? pad(d.getHours()) + ":" + pad(d.getMinutes()) : "19:00";
-  $("#mSport").value = ev && ev.sport ? ev.sport : "AFL";
-  $("#mTeam").value = ev ? ev.team || "" : "";
+  const sportVal = ev && ev.sport ? ev.sport : "";
+  const mSportEl = $("#mSport");
+  if (mSportEl) mSportEl.value = sportVal;
+  populateTeamDropdown(sportVal);
+  const mTeamEl = $("#mTeam");
+  if (mTeamEl) mTeamEl.value = ev ? ev.team || "" : "";
   $("#mOpp").value = ev ? ev.opponent || "" : "";
   $("#mState").value = ev && ev.state ? ev.state : "WA";
   $("#mVenue").value = ev ? ev.venue || "" : "";
@@ -418,7 +422,7 @@ async function saveForm() {
       capacity: Number($("#mCap").value) || 0,
       notes: $("#mNotes").value.trim(),
       sport: selectedIsSport ? $("#mSport").value : "",
-      team: selectedIsSport ? $("#mTeam").value.trim() : "",
+      team: selectedIsSport ? ($("#mTeam").value || "") : "",
       opponent: selectedIsSport ? $("#mOpp").value.trim() : ""
     };
     if (!$("#mDate").value) throw new Error("Pick a date — the board is ordered by start time.");
@@ -777,6 +781,29 @@ function exportCsv() {
 
 /* ---------------- wiring ---------------- */
 
+
+function populateTeamDropdown(sportFilter) {
+  const sel = $("#mTeam");
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = "";
+  const blank = document.createElement("option");
+  blank.value = ""; blank.textContent = "— Select team —";
+  sel.appendChild(blank);
+  const teams = (reference.teams || []).filter(t =>
+    !sportFilter || !t.sport || t.sport === sportFilter
+  );
+  teams.forEach(t => {
+    const o = document.createElement("option");
+    o.value = t.name; o.textContent = t.name;
+    sel.appendChild(o);
+  });
+  // Restore previous value if still valid
+  if (current && Array.from(sel.options).some(o => o.value === current)) {
+    sel.value = current;
+  }
+}
+
 function fillSelects() {
   // Filter dropdowns keep "All …" as the first option (value="") then append choices.
   const addFilter = (sel, allLabel, arr) => {
@@ -807,6 +834,7 @@ function fillSelects() {
   addForm($("#mState"),   "— State —",   reference.states);
   addForm($("#mSport"),   "— Sport —",   reference.sports);
   addForm($("#mBrand"),   "— Brand —",   reference.brands.map ? reference.brands : []);
+  populateTeamDropdown();
   // Event type dropdown
   const etSel = $("#mEventType");
   if (etSel) {
@@ -818,6 +846,9 @@ function fillSelects() {
       etSel.appendChild(o);
     });
     etSel.onchange = () => toggleSportFields(isSportType(etSel.value));
+  // Sport dropdown filters the team list
+  const mSportSel = $("#mSport");
+  if (mSportSel) mSportSel.onchange = () => populateTeamDropdown(mSportSel.value);
   }
 }
 
@@ -834,8 +865,6 @@ function wire() {
   $("#btnCancel").onclick = closeForm;
   $("#modalScrim").onclick = closeForm;
   $("#btnSave").onclick = saveForm;
-  document.querySelectorAll("#typeSeg button").forEach((b) => { b.onclick = () => setFormType(b.dataset.type); });
-
   $("#btnAdmin").onclick = () => openAdmin("staff");
   $("#adminScrim").onclick   = closeAdmin;
   $("#btnAdminClose").onclick  = closeAdmin;
