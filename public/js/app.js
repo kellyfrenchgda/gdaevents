@@ -735,9 +735,17 @@ function wire() {
   document.querySelectorAll("#typeSeg button").forEach((b) => { b.onclick = () => setFormType(b.dataset.type); });
 
   $("#btnAdmin").onclick = () => openAdmin("staff");
-  $("#adminScrim").onclick  = closeAdmin;
+  $("#adminScrim").onclick   = closeAdmin;
   $("#btnAdminClose").onclick  = closeAdmin;
   $("#btnAdminClose2").onclick = closeAdmin;
+  $("#btnReseed").onclick = async () => {
+    if (!confirm("This will DELETE all current events and allocations and reload the sample data. Continue?")) return;
+    try {
+      await api("POST", "/api/admin/reseed");
+      await refresh(); render(); closeAdmin();
+      toast("Demo data reloaded");
+    } catch(err) { toast(err.message, true); }
+  };
   document.querySelectorAll(".admin-tab").forEach(b => {
     b.onclick = () => openAdmin(b.dataset.tab);
   });

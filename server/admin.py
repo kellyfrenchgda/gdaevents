@@ -157,3 +157,15 @@ def delete_team(team_id):
         if cur.rowcount == 0:
             return jsonify(error="Team not found."), 404
     return jsonify(ok=True)
+
+
+# ─── demo data ────────────────────────────────────────────────────────────────
+
+@admin_bp.post("/api/admin/reseed")
+@require_auth
+@require_admin
+def reseed_demo():
+    """Wipe all events/allocations and reload demo data. Admin only."""
+    from .db import force_reseed
+    force_reseed()
+    return jsonify(ok=True, message="Demo data reloaded.")

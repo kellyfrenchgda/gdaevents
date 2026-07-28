@@ -227,6 +227,18 @@ def _bootstrap_admin():
     print(f"[setup] Admin account created for {email}")
 
 
+def force_reseed():
+    """Wipe all events and allocations and re-seed demo data."""
+    with get_db() as con:
+        con.execute("DELETE FROM allocations")
+        con.execute("DELETE FROM events")
+    # Temporarily override env to allow seed
+    orig = os.environ.get("SEED_DEMO", "")
+    os.environ["SEED_DEMO"] = "true"
+    _seed_demo()
+    os.environ["SEED_DEMO"] = orig
+
+
 def _seed_demo():
     if os.environ.get("SEED_DEMO", "").lower() != "true":
         return

@@ -67,6 +67,7 @@
 
 <div class="scrim" id="scrim"></div>
 
+<!-- event detail sheet -->
 <aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="sheet-head" id="sheetHead">
     <div class="row1">
@@ -78,10 +79,7 @@
     </div>
   </div>
   <div class="sheet-body" id="sheetBody"></div>
-  <div class="sheet-foot" id="sheetFoot">
-    <button class="btn ghost sm" id="btnEdit">Edit event</button>
-    <button class="btn danger sm" id="btnDelete" style="margin-left:auto">Delete event</button>
-  </div>
+  <div class="sheet-foot" id="sheetFoot"></div>
 </aside>
 
 <!-- event form -->
@@ -122,40 +120,24 @@
   </div>
 </div>
 
-<!-- people -->
-<div class="modal" id="people" role="dialog" aria-modal="true" aria-labelledby="peopleTitle">
-  <div class="modal-scrim" id="peopleScrim"></div>
-  <div class="modal-card">
-    <div class="modal-head"><h2 id="peopleTitle">People</h2></div>
-    <div class="modal-body">
-      <div id="peopleList"></div>
-      <div class="miniform">
-        <div class="grid2">
-          <label class="f"><span>Name</span><input class="f" id="uName" placeholder="Jordan Blake"></label>
-          <label class="f"><span>Email</span><input class="f" id="uEmail" type="email" placeholder="jordan@gooddrinks.com.au"></label>
-        </div>
-        <div class="grid2" style="margin-top:10px">
-          <label class="f"><span>Starting password</span><input class="f" id="uPass" type="text" placeholder="10+ characters"></label>
-          <label class="f"><span>Roles (select all that apply)</span>
-            <div id="uRoles" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px">
-              <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:normal">
-                <input type="checkbox" value="admin" id="uRoleAdmin"> Admin <span style="color:var(--ink-3);font-size:12px">— manage people</span>
-              </label>
-              <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:normal">
-                <input type="checkbox" value="manager" id="uRoleManager"> Manager <span style="color:var(--ink-3);font-size:12px">— edit events &amp; allocations</span>
-              </label>
-              <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:normal">
-                <input type="checkbox" value="member" id="uRoleMember" checked> Member <span style="color:var(--ink-3);font-size:12px">— view only</span>
-              </label>
-            </div>
-          </label>
-        </div>
-        <div class="warn" id="uWarn" role="alert"></div>
-        <button class="btn amber sm" id="btnAddUser" style="margin-top:12px">Add person</button>
-        <div class="hint">Share the starting password directly and ask them to change it after their first sign-in.</div>
-      </div>
+<!-- admin panel -->
+<div class="modal" id="adminPanel" role="dialog" aria-modal="true" aria-labelledby="adminPanelTitle">
+  <div class="modal-scrim" id="adminScrim"></div>
+  <div class="modal-card" style="max-width:760px">
+    <div class="modal-head" style="justify-content:space-between">
+      <h2 id="adminPanelTitle">Admin</h2>
+      <button class="x" id="btnAdminClose" aria-label="Close admin panel">✕</button>
     </div>
-    <div class="modal-foot"><button class="btn ghost" id="btnPeopleClose">Close</button></div>
+    <div style="display:flex;border-bottom:1px solid var(--rule);background:var(--paper-2)">
+      <button class="admin-tab on" data-tab="staff">Staff access</button>
+      <button class="admin-tab" data-tab="teams">Sporting teams</button>
+      <button class="admin-tab" data-tab="brands">Brands</button>
+    </div>
+    <div class="modal-body" id="adminBody" style="min-height:380px"></div>
+    <div class="modal-foot" style="justify-content:space-between">
+      <button class="btn danger sm" id="btnReseed" title="Wipe all events and reload the sample data">Reload demo data</button>
+      <button class="btn ghost" id="btnAdminClose2">Close</button>
+    </div>
   </div>
 </div>
 
