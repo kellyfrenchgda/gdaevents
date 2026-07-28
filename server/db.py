@@ -76,6 +76,21 @@ CREATE TABLE IF NOT EXISTS allocations (
     created_at TEXT NOT NULL
 );
 
+
+CREATE TABLE IF NOT EXISTS ref_teams (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL UNIQUE,
+    sport      TEXT NOT NULL DEFAULT '',
+    state      TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS ref_brands (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL UNIQUE,
+    colour     TEXT NOT NULL DEFAULT '#7A8F9C',
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
 CREATE INDEX IF NOT EXISTS idx_alloc_event ON allocations(event_id);
 CREATE INDEX IF NOT EXISTS idx_events_start ON events(start);
 """
@@ -137,10 +152,54 @@ DEMO = [
 ]
 
 
+
+DEFAULT_BRANDS = [
+    ("Gage Roads Brew Co",      "#0B4F8A"),
+    ("Single Fin",              "#F5B301"),
+    ("Matso's Broome Brewery",  "#E2571F"),
+    ("Atomic Beer Project",     "#D81E5B"),
+    ("Alby",                    "#1E7A45"),
+    ("Hello Sunshine",          "#00A39B"),
+    ("Miller Chill",            "#B3122B"),
+    ("Good Drinks (house)",     "#253746"),
+]
+
+DEFAULT_TEAMS = [
+    ("Adelaide Crows",           "AFL",          "SA"),
+    ("Fremantle Dockers",        "AFL",          "WA"),
+    ("West Coast Eagles",        "AFL",          "WA"),
+    ("Perth Glory",              "Football",     "WA"),
+    ("Melbourne Victory",        "Football",     "VIC"),
+    ("Sydney Sixers",            "Cricket",      "NSW"),
+    ("Perth Scorchers",          "Cricket",      "WA"),
+    ("Melbourne Renegades",      "Cricket",      "VIC"),
+    ("Hobart Hurricanes",        "Cricket",      "TAS"),
+    ("Brisbane Broncos",         "Rugby League", "QLD"),
+    ("North Queensland Cowboys", "Rugby League", "QLD"),
+    ("Perth SVNS",               "Rugby Union",  "WA"),
+]
+
+
+def _seed_reference():
+    with get_db() as con:
+        if con.execute("SELECT COUNT(*) FROM ref_brands").fetchone()[0] == 0:
+            for i, (name, colour) in enumerate(DEFAULT_BRANDS):
+                con.execute(
+                    "INSERT OR IGNORE INTO ref_brands (id,name,colour,sort_order) VALUES (?,?,?,?)",
+                    (uid(), name, colour, i)
+                )
+        if con.execute("SELECT COUNT(*) FROM ref_teams").fetchone()[0] == 0:
+            for i, (name, sport, state) in enumerate(DEFAULT_TEAMS):
+                con.execute(
+                    "INSERT OR IGNORE INTO ref_teams (id,name,sport,state,sort_order) VALUES (?,?,?,?,?)",
+                    (uid(), name, sport, state, i)
+                )
+
 def init_db():
     with get_db() as con:
         con.executescript(SCHEMA)
 
+    _seed_reference()
     _bootstrap_admin()
     _seed_demo()
 

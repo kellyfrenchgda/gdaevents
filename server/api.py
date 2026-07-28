@@ -9,10 +9,8 @@ api_bp = Blueprint("api", __name__)
 STATES = ["WA", "SA", "NSW", "VIC", "QLD", "TAS", "NT", "ACT"]
 SPORTS = ["AFL", "AFLW", "Cricket", "Rugby Union", "Rugby League",
           "Football", "Basketball", "Netball", "Motorsport", "Other"]
-BRANDS = [
-    "Gage Roads Brew Co", "Single Fin", "Matso's Broome Brewery",
-    "Atomic Beer Project", "Alby", "Hello Sunshine", "Miller Chill", "Good Drinks (house)"
-]
+def _get_brands(con):
+    return [r["name"] for r in con.execute("SELECT name FROM ref_brands ORDER BY sort_order,name").fetchall()]
 
 
 def _str(v, max_len=200):
@@ -45,7 +43,10 @@ def _event_with_allocs(con, event_id):
 @api_bp.get("/api/reference")
 @require_auth
 def reference():
-    return jsonify(states=STATES, sports=SPORTS, brands=BRANDS)
+    with get_db() as con:
+        brands = _get_brands(con)
+        teams  = [dict(r) for r in con.execute("SELECT * FROM ref_teams ORDER BY sort_order,name").fetchall()]
+    return jsonify(states=STATES, sports=SPORTS, brands=brands, teams=teams)
 
 
 # ---------- events ----------
@@ -80,7 +81,7 @@ def _parse_event_body(data):
         team="" if event_type == "general" else _str(data.get("team"), 120),
         opponent="" if event_type == "general" else _str(data.get("opponent"), 120),
         venue=_str(data.get("venue"), 160),
-        brand=data.get("brand") if data.get("brand") in BRANDS else "",
+        brand=_str(data.get("brand"), 160),  # validated at save time against db list
         capacity=capacity,
         notes=_str(data.get("notes"), 2000),
     )

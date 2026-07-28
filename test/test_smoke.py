@@ -244,3 +244,93 @@ class BoardSmokeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class AdminPanelTest(unittest.TestCase):
+    """Tests for the admin panel: brands and teams CRUD."""
+
+    @classmethod
+    def setUpClass(cls):
+        # Sign in as admin (reuse session from earlier suite if available,
+        # or sign in fresh — the server is already running)
+        call("adminB", "POST", "/api/login",
+             {"email": "admin@test.local", "password": "adminpassword123"})
+        call("memberB", "POST", "/api/login",
+             {"email": "member@test.local", "password": "memberpassword123"})
+
+    # ── brands ──────────────────────────────────────────────────────────────
+
+    def test_b01_admin_can_list_brands(self):
+        status, data = call("adminB", "GET", "/api/admin/brands")
+        self.assertEqual(status, 200)
+        self.assertIn("brands", data)
+
+    def test_b02_admin_can_add_brand(self):
+        status, data = call("adminB", "POST", "/api/admin/brands",
+                            {"name": "Test Brew Co", "colour": "#AABBCC"})
+        self.assertEqual(status, 201)
+        self.assertEqual(data["brand"]["name"], "Test Brew Co")
+        AdminPanelTest.brand_id = data["brand"]["id"]
+
+    def test_b03_duplicate_brand_refused(self):
+        status, _ = call("adminB", "POST", "/api/admin/brands", {"name": "Test Brew Co"})
+        self.assertEqual(status, 409)
+
+    def test_b04_admin_can_update_brand(self):
+        status, data = call("adminB", "PATCH", f"/api/admin/brands/{self.brand_id}",
+                            {"name": "Test Brew Co Updated", "colour": "#112233"})
+        self.assertEqual(status, 200)
+        self.assertEqual(data["brand"]["colour"], "#112233")
+
+    def test_b05_member_cannot_add_brand(self):
+        status, _ = call("memberB", "POST", "/api/admin/brands", {"name": "Sneaky Brand"})
+        self.assertEqual(status, 403)
+
+    def test_b06_admin_can_delete_brand(self):
+        status, _ = call("adminB", "DELETE", f"/api/admin/brands/{self.brand_id}")
+        self.assertEqual(status, 200)
+
+    # ── teams ────────────────────────────────────────────────────────────────
+
+    def test_t01_admin_can_list_teams(self):
+        status, data = call("adminB", "GET", "/api/admin/teams")
+        self.assertEqual(status, 200)
+        self.assertIn("teams", data)
+
+    def test_t02_admin_can_add_team(self):
+        status, data = call("adminB", "POST", "/api/admin/teams",
+                            {"name": "Test FC", "sport": "AFL", "state": "WA"})
+        self.assertEqual(status, 201)
+        self.assertEqual(data["team"]["sport"], "AFL")
+        AdminPanelTest.team_id = data["team"]["id"]
+
+    def test_t03_duplicate_team_refused(self):
+        status, _ = call("adminB", "POST", "/api/admin/teams", {"name": "Test FC"})
+        self.assertEqual(status, 409)
+
+    def test_t04_admin_can_update_team(self):
+        status, data = call("adminB", "PATCH", f"/api/admin/teams/{self.team_id}",
+                            {"name": "Test FC", "sport": "Cricket", "state": "SA"})
+        self.assertEqual(status, 200)
+        self.assertEqual(data["team"]["sport"], "Cricket")
+
+    def test_t05_member_cannot_add_team(self):
+        status, _ = call("memberB", "POST", "/api/admin/teams", {"name": "Sneaky FC"})
+        self.assertEqual(status, 403)
+
+    def test_t06_admin_can_delete_team(self):
+        status, _ = call("adminB", "DELETE", f"/api/admin/teams/{self.team_id}")
+        self.assertEqual(status, 200)
+
+    # ── reference endpoint includes db brands ────────────────────────────────
+
+    def test_r01_reference_includes_brands_from_db(self):
+        status, data = call("adminB", "GET", "/api/reference")
+        self.assertEqual(status, 200)
+        self.assertIsInstance(data["brands"], list)
+        self.assertGreater(len(data["brands"]), 0)
+
+    def test_r02_reference_includes_teams_from_db(self):
+        status, data = call("adminB", "GET", "/api/reference")
+        self.assertEqual(status, 200)
+        self.assertIsInstance(data["teams"], list)

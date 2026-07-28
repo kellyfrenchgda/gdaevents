@@ -9,6 +9,7 @@ from .db import init_db
 from .auth import auth_bp
 from .api import api_bp
 from .sso import sso_bp, sso_enabled
+from .admin import admin_bp
 
 PUBLIC_DIR = Path(__file__).parent.parent / "public"
 
@@ -35,6 +36,7 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(sso_bp)
+    app.register_blueprint(admin_bp)
 
     @app.get("/api/sso-config")
     def sso_config():

@@ -427,54 +427,233 @@ async function deleteEvent() {
   }
 }
 
-/* ---------------- people ---------------- */
+/* ---------------- admin panel ---------------- */
 
-async function openPeople() {
-  $("#people").classList.add("on");
-  $("#uWarn").textContent = "";
-  await drawPeople();
+let adminTab = "staff";
+
+function closeAdmin() { $("#adminPanel").classList.remove("on"); }
+
+async function openAdmin(tab) {
+  adminTab = tab || "staff";
+  document.querySelectorAll(".admin-tab").forEach(b => b.classList.toggle("on", b.dataset.tab === adminTab));
+  $("#adminPanel").classList.add("on");
+  await drawAdminTab();
 }
 
-async function drawPeople() {
+async function drawAdminTab() {
+  const body = $("#adminBody");
+  body.innerHTML = '<p class="hint" style="padding:20px">Loading…</p>';
   try {
-    const { users } = await api("GET", "/users");
-    $("#peopleList").innerHTML = users.map((u) =>
-      '<div class="person">' +
-        '<div class="who"><div class="n">' + esc(u.name) + "</div>" +
-        '<div class="o">' + esc(u.email) + "</div></div>" +
-        + (u.roles || [u.role]).map(r =>
-          '<span class="pill ' + (r === "admin" ? "confirmed" : r === "manager" ? "pending" : "") + '" style="margin-right:3px">' + esc(r) + '</span>'
-        ).join("") +
-        (u.id === me.id ? "" : '<button class="rm" data-del="' + u.id + '" aria-label="Remove ' + esc(u.name) + '">✕</button>') +
-      "</div>").join("");
-    $("#peopleList").querySelectorAll("[data-del]").forEach((b) => {
-      b.onclick = async () => {
-        if (!confirm("Remove this person's access?")) return;
-        try { await api("DELETE", "/users/" + b.dataset.del); await drawPeople(); toast("Access removed"); }
-        catch (err) { toast(err.message, true); }
+    if (adminTab === "staff")  await drawStaff(body);
+    if (adminTab === "teams")  await drawTeams(body);
+    if (adminTab === "brands") await drawBrands(body);
+  } catch(err) {
+    body.innerHTML = '<p class="warn" style="padding:20px">' + esc(err.message) + "</p>";
+  }
+}
+
+/* ── Staff tab ──────────────────────────────────────────────────────────── */
+
+async function drawStaff(body) {
+  const { users } = await api("GET", "/api/users");
+  const list = users.map(u => {
+    const rolePills = (u.roles || [u.role]).map(r =>
+      '<span class="pill ' + (r==="admin"?"confirmed":r==="manager"?"pending":"") + '" style="margin-right:3px">' + esc(r) + '</span>'
+    ).join("");
+    return '<div class="ref-row" data-uid="' + u.id + '">' +
+      '<div class="rname">' + esc(u.name) + '<span class="rmeta">' + esc(u.email) + '</span></div>' +
+      '<div class="role-badges">' + rolePills + '</div>' +
+      (u.id === me.id ? "" : '<button class="rm" data-rm-user="' + u.id + '" title="Remove access">✕</button>') +
+    '</div>';
+  }).join("");
+
+  body.innerHTML = '<div style="padding:0 0 14px">' + list + '</div>' +
+    '<div class="miniform">' +
+      '<div class="grid2"><label class="f"><span>Name</span><input class="f" id="uName" placeholder="Jordan Blake"></label>' +
+      '<label class="f"><span>Email</span><input class="f" id="uEmail" type="email" placeholder="jordan@gooddrinks.com.au"></label></div>' +
+      '<div class="grid2" style="margin-top:10px"><label class="f"><span>Starting password</span><input class="f" id="uPass" type="text" placeholder="10+ characters"></label>' +
+      '<label class="f"><span>Roles (tick all that apply)</span>' +
+        '<div id="uRoles" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px">' +
+          '<label style="display:flex;align-items:center;gap:5px;font-size:14px;font-weight:normal"><input type="checkbox" value="admin" id="uRoleAdmin"> Admin</label>' +
+          '<label style="display:flex;align-items:center;gap:5px;font-size:14px;font-weight:normal"><input type="checkbox" value="manager" id="uRoleManager"> Manager</label>' +
+          '<label style="display:flex;align-items:center;gap:5px;font-size:14px;font-weight:normal"><input type="checkbox" value="member" id="uRoleMember" checked> Member</label>' +
+        '</div></label></div>' +
+      '<div class="warn" id="uWarn" role="alert"></div>' +
+      '<button class="btn amber sm" id="btnAddUser" style="margin-top:12px">Add person</button>' +
+      '<div class="hint" style="margin-top:8px">Share the starting password and ask them to change it after first sign-in. SSO users are auto-provisioned on first login.</div>' +
+    '</div>';
+
+  body.querySelectorAll("[data-rm-user]").forEach(b => {
+    b.onclick = async () => {
+      if (!confirm("Remove this person\'s access?")) return;
+      try { await api("DELETE", "/api/users/" + b.dataset.rmUser); await drawAdminTab(); toast("Access removed"); }
+      catch(err) { toast(err.message, true); }
+    };
+  });
+  $("#btnAddUser").onclick = async () => {
+    const warn = $("#uWarn"); warn.textContent = "";
+    const selectedRoles = Array.from(document.querySelectorAll("#uRoles input:checked")).map(cb => cb.value);
+    try {
+      await api("POST", "/api/users", {
+        name: $("#uName").value.trim(), email: $("#uEmail").value.trim(),
+        password: $("#uPass").value,
+        roles: selectedRoles.length ? selectedRoles : ["member"]
+      });
+      $("#uName").value = ""; $("#uEmail").value = ""; $("#uPass").value = "";
+      await drawAdminTab(); toast("Person added");
+    } catch(err) { warn.textContent = err.message; }
+  };
+
+  // Clicking a role pill toggles it (promotes/demotes)
+  body.querySelectorAll(".ref-row[data-uid]").forEach(row => {
+    row.querySelectorAll(".pill").forEach(pill => {
+      pill.title = "Click to remove this role";
+      pill.style.cursor = "pointer";
+      pill.onclick = async () => {
+        const uid = row.dataset.uid;
+        const { users } = await api("GET", "/api/users");
+        const user = users.find(u => u.id === uid);
+        if (!user) return;
+        const current = user.roles || [user.role];
+        const role = pill.textContent.trim();
+        const updated = current.filter(r => r !== role);
+        if (!updated.length) updated.push("member");
+        try { await api("PATCH", "/api/users/" + uid, { roles: updated }); await drawAdminTab(); toast("Role updated"); }
+        catch(err) { toast(err.message, true); }
       };
     });
-  } catch (err) {
-    $("#peopleList").innerHTML = '<p class="warn">' + esc(err.message) + "</p>";
-  }
+    // Add role button
+    const addBtn = document.createElement("button");
+    addBtn.className = "btn ghost sm"; addBtn.textContent = "+ Role";
+    addBtn.onclick = async () => {
+      const uid = row.dataset.uid;
+      const { users } = await api("GET", "/api/users");
+      const user = users.find(u => u.id === uid);
+      if (!user) return;
+      const current = new Set(user.roles || [user.role]);
+      const choices = ["admin","manager","member"].filter(r => !current.has(r));
+      if (!choices.length) { toast("Already has all roles"); return; }
+      const pick = choices.length === 1 ? choices[0] : prompt("Add which role? " + choices.join(" / "));
+      if (!pick || !choices.includes(pick)) return;
+      const updated = [...current, pick];
+      try { await api("PATCH", "/api/users/" + uid, { roles: updated }); await drawAdminTab(); toast("Role added"); }
+      catch(err) { toast(err.message, true); }
+    };
+    row.querySelector(".role-badges").after(addBtn);
+    row.querySelector(".role-badges").style.marginRight = "6px";
+  });
 }
 
-async function addUser() {
-  const warn = $("#uWarn");
-  warn.textContent = "";
-  try {
-    await api("POST", "/users", {
-      name: $("#uName").value.trim(),
-      email: $("#uEmail").value.trim(),
-      password: $("#uPass").value,
-      role: $("#uRole").value
-    });
-    $("#uName").value = ""; $("#uEmail").value = ""; $("#uPass").value = "";
-    await drawPeople();
-    toast("Person added");
-  } catch (err) {
-    warn.textContent = err.message;
-  }
+/* ── Teams tab ──────────────────────────────────────────────────────────── */
+
+async function drawTeams(body) {
+  const { teams } = await api("GET", "/api/admin/teams");
+  const SPORTS_LIST = reference.sports || [];
+  const STATES_LIST = reference.states || [];
+
+  const spopts = SPORTS_LIST.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+  const stopts = STATES_LIST.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+
+  const list = teams.map(t =>
+    '<div class="ref-row">' +
+      '<div class="rname">' + esc(t.name) +
+        (t.sport ? '<span class="rmeta">· ' + esc(t.sport) + (t.state ? " · " + esc(t.state) : "") + '</span>' : "") +
+      '</div>' +
+      '<button class="rm" data-rm-team="' + t.id + '" title="Delete team">✕</button>' +
+    '</div>'
+  ).join("");
+
+  body.innerHTML = '<div style="padding:0 0 14px">' + (list || '<p class="hint">No teams yet.</p>') + '</div>' +
+    '<div class="miniform">' +
+      '<div class="grid2">' +
+        '<label class="f"><span>Team name</span><input class="f" id="tName" placeholder="Adelaide Crows"></label>' +
+        '<label class="f"><span>Sport</span><select class="f" id="tSport"><option value="">— optional —</option>' + spopts + '</select></label>' +
+      '</div>' +
+      '<div class="grid2" style="margin-top:10px">' +
+        '<label class="f"><span>State</span><select class="f" id="tState"><option value="">— optional —</option>' + stopts + '</select></label>' +
+      '</div>' +
+      '<div class="warn" id="tWarn" role="alert"></div>' +
+      '<button class="btn amber sm" id="btnAddTeam" style="margin-top:12px">Add team</button>' +
+    '</div>';
+
+  body.querySelectorAll("[data-rm-team]").forEach(b => {
+    b.onclick = async () => {
+      if (!confirm("Delete this team?")) return;
+      try { await api("DELETE", "/api/admin/teams/" + b.dataset.rmTeam); await drawAdminTab(); toast("Team removed"); }
+      catch(err) { toast(err.message, true); }
+    };
+  });
+  $("#btnAddTeam").onclick = async () => {
+    const warn = $("#tWarn"); warn.textContent = "";
+    try {
+      await api("POST", "/api/admin/teams", {
+        name: $("#tName").value.trim(),
+        sport: $("#tSport").value,
+        state: $("#tState").value,
+      });
+      $("#tName").value = "";
+      // refresh reference for event form
+      reference = await api("GET", "/reference"); fillSelects();
+      await drawAdminTab(); toast("Team added");
+    } catch(err) { warn.textContent = err.message; }
+  };
+}
+
+/* ── Brands tab ─────────────────────────────────────────────────────────── */
+
+async function drawBrands(body) {
+  const { brands } = await api("GET", "/api/admin/brands");
+
+  const list = brands.map(b =>
+    '<div class="ref-row">' +
+      '<span class="swatch" style="background:' + esc(b.colour) + '"></span>' +
+      '<div class="rname">' + esc(b.name) + '</div>' +
+      '<button class="rm" data-rm-brand="' + b.id + '" title="Delete brand">✕</button>' +
+    '</div>'
+  ).join("");
+
+  body.innerHTML = '<div style="padding:0 0 14px">' + (list || '<p class="hint">No brands yet.</p>') + '</div>' +
+    '<div class="miniform">' +
+      '<div class="grid2">' +
+        '<label class="f"><span>Brand name</span><input class="f" id="bName" placeholder="Gage Roads Brew Co"></label>' +
+        '<label class="f"><span>Colour</span>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-top:4px">' +
+            '<input type="color" id="bColour" value="#0B4F8A" style="width:44px;height:36px;border:1px solid var(--rule);border-radius:3px;padding:2px;cursor:pointer">' +
+            '<input class="f" id="bColourHex" value="#0B4F8A" placeholder="#0B4F8A" style="flex:1">' +
+          '</div></label>' +
+      '</div>' +
+      '<div class="warn" id="bWarn" role="alert"></div>' +
+      '<button class="btn amber sm" id="btnAddBrand" style="margin-top:12px">Add brand</button>' +
+    '</div>';
+
+  // Sync colour picker ↔ hex input
+  body.querySelector("#bColour").oninput = e => { body.querySelector("#bColourHex").value = e.target.value; };
+  body.querySelector("#bColourHex").oninput = e => {
+    if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) body.querySelector("#bColour").value = e.target.value;
+  };
+
+  body.querySelectorAll("[data-rm-brand]").forEach(b => {
+    b.onclick = async () => {
+      if (!confirm("Delete this brand?")) return;
+      try {
+        await api("DELETE", "/api/admin/brands/" + b.dataset.rmBrand);
+        reference = await api("GET", "/reference"); fillSelects();
+        await drawAdminTab(); toast("Brand removed");
+      } catch(err) { toast(err.message, true); }
+    };
+  });
+  $("#btnAddBrand").onclick = async () => {
+    const warn = $("#bWarn"); warn.textContent = "";
+    try {
+      await api("POST", "/api/admin/brands", {
+        name: $("#bName").value.trim(),
+        colour: $("#bColourHex").value.trim() || $("#bColour").value,
+      });
+      $("#bName").value = "";
+      reference = await api("GET", "/reference"); fillSelects();
+      await drawAdminTab(); toast("Brand added");
+    } catch(err) { warn.textContent = err.message; }
+  };
 }
 
 /* ---------------- csv ---------------- */
@@ -506,13 +685,14 @@ function exportCsv() {
 /* ---------------- wiring ---------------- */
 
 function fillSelects() {
-  const add = (sel, arr) => arr.forEach((v) => {
+  const add = (sel, arr) => { sel.innerHTML = ""; arr.forEach((v) => {
     const o = document.createElement("option");
-    o.value = v; o.textContent = v;
-    sel.appendChild(o);
-  });
-  add($("#fState"), reference.states); add($("#fSport"), reference.sports); add($("#fBrand"), reference.brands);
-  add($("#mState"), reference.states); add($("#mSport"), reference.sports); add($("#mBrand"), reference.brands);
+    o.value = v; o.textContent = v; sel.appendChild(o);
+  }); };
+  add($("#fState"), reference.states); add($("#fSport"), reference.sports);
+  add($("#fBrand"), reference.brands.map ? reference.brands : []);
+  add($("#mState"), reference.states); add($("#mSport"), reference.sports);
+  add($("#mBrand"), reference.brands.map ? reference.brands : []);
 }
 
 function wire() {
@@ -532,10 +712,14 @@ function wire() {
   $("#btnSave").onclick = saveForm;
   document.querySelectorAll("#typeSeg button").forEach((b) => { b.onclick = () => setFormType(b.dataset.type); });
 
-  $("#btnPeople").onclick = openPeople;
-  $("#peopleScrim").onclick = () => $("#people").classList.remove("on");
-  $("#btnPeopleClose").onclick = () => $("#people").classList.remove("on");
-  $("#btnAddUser").onclick = addUser;
+  $("#btnAdmin").onclick = () => openAdmin("staff");
+  $("#adminScrim").onclick  = closeAdmin;
+  $("#btnAdminClose").onclick  = closeAdmin;
+  $("#btnAdminClose2").onclick = closeAdmin;
+  document.querySelectorAll(".admin-tab").forEach(b => {
+    b.onclick = () => openAdmin(b.dataset.tab);
+  });
+
 
   $("#btnPassword").onclick = () => {
     $("#pWarn").textContent = ""; $("#pCurrent").value = ""; $("#pNext").value = "";
@@ -575,9 +759,10 @@ function wire() {
   $("#meName").textContent = me.name;
   $("#meRole").textContent = (me.roles || [me.role]).join(", ");
   $("#btnAdd").hidden = !isManager();
-  $("#btnPeople").hidden = !isAdmin();
+  $("#btnAdmin").hidden = !isAdmin();
 
   reference = (await api("GET", "/reference"));
+  reference.teams = reference.teams || [];
   fillSelects();
   wire();
   await refresh();
