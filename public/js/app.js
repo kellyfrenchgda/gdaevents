@@ -199,6 +199,7 @@ function openSheet(id) {
   const left = remaining(ev);
   const parts = fmtDayParts(ev.start);
   const isGen = ev.type === "general";
+  const sheetEv = ev;  // keep reference for run sheet button
 
   $("#sheetHead").style.setProperty("--keel", brandColour(ev.brand));
   $("#sheetWhen").textContent = parts.full + " · " + fmtTime(ev.start);
@@ -265,7 +266,7 @@ function openSheet(id) {
   $("#sheetBody").querySelectorAll("[data-flip]").forEach((b) => { b.onclick = () => flipStatus(ev, b.dataset.flip); });
   $("#btnAlloc").onclick = () => addAlloc(ev.id);
 
-  $("#sheetFoot").hidden = !isManager();
+  $("#sheetFoot").hidden = false;  // footer always visible; edit buttons gated inside
   $("#sheet").classList.add("on");
   $("#scrim").classList.add("on");
   $("#btnCloseSheet").focus();

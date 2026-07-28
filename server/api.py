@@ -229,3 +229,31 @@ def delete_allocation(alloc_id):
         if cur.rowcount == 0:
             return jsonify(error="Those seats have already been released."), 404
     return jsonify(ok=True)
+
+
+# ---------- run sheet ----------
+
+@api_bp.get("/api/events/<event_id>/runsheet")
+@require_auth
+def event_runsheet(event_id):
+    from flask import make_response
+    from .runsheet import build_runsheet
+
+    with get_db() as con:
+        ev = con.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
+        if not ev:
+            return jsonify(error="Event not found."), 404
+        allocs = con.execute(
+            "SELECT * FROM allocations WHERE event_id=? ORDER BY created_at", (event_id,)
+        ).fetchall()
+
+    event_dict = _row_to_dict(ev)
+    event_dict["allocations"] = [_row_to_dict(a) for a in allocs]
+
+    pdf_bytes = build_runsheet(event_dict)
+    filename = (event_dict.get("name") or "runsheet").replace(" ", "_")[:60] + ".pdf"
+
+    resp = make_response(pdf_bytes)
+    resp.headers["Content-Type"] = "application/pdf"
+    resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"' 
+    return resp
