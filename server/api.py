@@ -68,21 +68,25 @@ def list_events():
 
 
 def _parse_event_body(data):
-    event_type = "general" if data.get("type") == "general" else "sponsorship"
+    """Parse event fields from request body.
+    type = event type name (e.g. "Sport", "Concert", "Trade Conf")
+    is_sport = client signals whether team/sport fields apply
+    """
     try:
         capacity = max(0, int(data.get("capacity") or 0))
     except (ValueError, TypeError):
         capacity = 0
+    is_sport = bool(data.get("is_sport"))
     return dict(
         name=_str(data.get("name"), 160),
-        type=event_type,
+        type=_str(data.get("type"), 80),
         start=_str(data.get("start"), 40),
         state=data.get("state") if data.get("state") in STATES else "",
-        sport="" if event_type == "general" else (data.get("sport") if data.get("sport") in SPORTS else ""),
-        team="" if event_type == "general" else _str(data.get("team"), 120),
-        opponent="" if event_type == "general" else _str(data.get("opponent"), 120),
+        sport="" if not is_sport else (data.get("sport") if data.get("sport") in SPORTS else ""),
+        team="" if not is_sport else _str(data.get("team"), 120),
+        opponent="" if not is_sport else _str(data.get("opponent"), 120),
         venue=_str(data.get("venue"), 160),
-        brand=_str(data.get("brand"), 160),  # validated at save time against db list
+        brand=_str(data.get("brand"), 160),
         capacity=capacity,
         notes=_str(data.get("notes"), 2000),
     )

@@ -334,3 +334,158 @@ class AdminPanelTest(unittest.TestCase):
         status, data = call("adminB", "GET", "/api/reference")
         self.assertEqual(status, 200)
         self.assertIsInstance(data["teams"], list)
+
+
+class EventListingTest(unittest.TestCase):
+    """Guard the event listing against regressions.
+
+    Creates one Sport event and one non-sport event, then checks every
+    field that appears on the event card and in the detail sheet.
+    Runs after the server is already up (setUpModule in BoardSmokeTest).
+    """
+
+    sport_id  = None
+    concert_id = None
+
+    @classmethod
+    def setUpClass(cls):
+        # Fresh sessions — prior suites may have logged out
+        call("listAdmin", "POST", "/api/login",
+             {"email": "admin@test.local", "password": "adminpassword123"})
+        # manager was created in BoardSmokeTest; log back in fresh
+        s, _ = call("listMgr", "POST", "/api/login",
+                    {"email": "manager@test.local", "password": "managerpassword123"})
+        if s != 200:
+            # manager may not exist yet if tests run standalone; create via admin
+            call("listAdmin", "POST", "/api/users", {
+                "name": "List Manager", "email": "manager@test.local",
+                "password": "managerpassword123", "roles": ["manager"]
+            })
+            call("listMgr", "POST", "/api/login",
+                 {"email": "manager@test.local", "password": "managerpassword123"})
+
+        # Ensure event types exist (seeded on boot, but double-check)
+        status, ref = call("listAdmin", "GET", "/api/reference")
+        assert status == 200, "reference endpoint failed"
+        types = {t["name"]: t for t in ref.get("event_types", [])}
+
+        # Create Sport event type if missing
+        if "Sport" not in types:
+            call("listAdmin", "POST", "/api/admin/event-types",
+                 {"name": "Sport", "is_sport": True})
+        if "Concert" not in types:
+            call("listAdmin", "POST", "/api/admin/event-types",
+                 {"name": "Concert", "is_sport": False})
+
+        # Create a Sport event (manager can create)
+        s, d = call("listMgr", "POST", "/api/events", {
+            "name": "Test Derby", "type": "Sport", "is_sport": True,
+            "start": "2027-06-01T15:00", "state": "WA", "sport": "AFL",
+            "team": "Test Eagles", "opponent": "Test Dockers",
+            "venue": "Test Stadium", "brand": "Alby", "capacity": 20,
+            "notes": "Listing test event",
+        })
+        assert s == 201, f"failed to create sport event: {d}"
+        cls.sport_id = d["event"]["id"]
+
+        # Create a Concert event
+        s, d = call("listMgr", "POST", "/api/events", {
+            "name": "Summer Concert Series", "type": "Concert", "is_sport": False,
+            "start": "2027-07-15T19:30", "state": "SA",
+            "venue": "Test Arena", "brand": "Single Fin", "capacity": 50,
+            "notes": "Concert listing test",
+        })
+        assert s == 201, f"failed to create concert event: {d}"
+        cls.concert_id = d["event"]["id"]
+
+    @classmethod
+    def tearDownClass(cls):
+        for eid in [cls.sport_id, cls.concert_id]:
+            if eid:
+                call("listAdmin", "DELETE", f"/api/events/{eid}")
+
+    # ── event listing ───────────────────────────────────────────────────────
+
+    def _get_event(self, eid):
+        _, data = call("listAdmin", "GET", "/api/events")
+        return next((e for e in data["events"] if e["id"] == eid), None)
+
+    def test_l01_sport_event_fields(self):
+        ev = self._get_event(self.sport_id)
+        self.assertIsNotNone(ev, "Sport event missing from listing")
+        self.assertEqual(ev["name"],     "Test Derby")
+        self.assertEqual(ev["type"],     "Sport")
+        self.assertEqual(ev["team"],     "Test Eagles")
+        self.assertEqual(ev["opponent"], "Test Dockers")
+        self.assertEqual(ev["sport"],    "AFL")
+        self.assertEqual(ev["state"],    "WA")
+        self.assertEqual(ev["venue"],    "Test Stadium")
+        self.assertEqual(ev["brand"],    "Alby")
+        self.assertEqual(ev["capacity"], 20)
+
+    def test_l02_concert_event_fields(self):
+        ev = self._get_event(self.concert_id)
+        self.assertIsNotNone(ev, "Concert event missing from listing")
+        self.assertEqual(ev["name"],  "Summer Concert Series")
+        self.assertEqual(ev["type"],  "Concert")
+        self.assertEqual(ev["team"],  "")   # no team for non-sport
+        self.assertEqual(ev["sport"], "")   # no sport for non-sport
+        self.assertEqual(ev["state"], "SA")
+        self.assertEqual(ev["venue"], "Test Arena")
+
+    def test_l03_sport_event_has_allocations_list(self):
+        ev = self._get_event(self.sport_id)
+        self.assertIn("allocations", ev)
+        self.assertIsInstance(ev["allocations"], list)
+
+    def test_l04_event_type_preserved_after_edit(self):
+        """Editing an event must not lose its event type."""
+        s, d = call("listMgr", "PATCH", f"/api/events/{self.sport_id}", {
+            "name": "Test Derby — Updated", "type": "Sport", "is_sport": True,
+            "start": "2027-06-01T15:00", "state": "WA", "sport": "AFL",
+            "team": "Test Eagles", "opponent": "Test Dockers",
+            "venue": "Test Stadium", "brand": "Alby", "capacity": 20,
+        })
+        self.assertEqual(s, 200)
+        self.assertEqual(d["event"]["type"], "Sport")
+        self.assertEqual(d["event"]["name"], "Test Derby — Updated")
+
+    def test_l05_reference_includes_event_types(self):
+        s, data = call("listAdmin", "GET", "/api/reference")
+        self.assertEqual(s, 200)
+        self.assertIn("event_types", data)
+        names = [t["name"] for t in data["event_types"]]
+        self.assertIn("Sport",   names)
+        self.assertIn("Concert", names)
+
+    def test_l06_reference_includes_teams_and_brands(self):
+        _, data = call("listAdmin", "GET", "/api/reference")
+        self.assertIsInstance(data.get("brands"), list)
+        self.assertIsInstance(data.get("teams"),  list)
+        self.assertGreater(len(data["brands"]), 0)
+
+    def test_l07_events_ordered_by_start(self):
+        _, data = call("listAdmin", "GET", "/api/events")
+        starts = [e["start"] for e in data["events"]]
+        self.assertEqual(starts, sorted(starts))
+
+    def test_l08_capacity_and_remaining_consistent(self):
+        ev = self._get_event(self.sport_id)
+        allocated = sum(a["seats"] for a in ev["allocations"])
+        self.assertEqual(ev["capacity"] - allocated, ev["capacity"])  # no allocs yet
+
+    def test_l09_sport_type_flag_in_reference(self):
+        _, data = call("listAdmin", "GET", "/api/reference")
+        sport_type = next((t for t in data["event_types"] if t["name"] == "Sport"), None)
+        self.assertIsNotNone(sport_type)
+        self.assertTrue(sport_type["is_sport"])
+        concert_type = next((t for t in data["event_types"] if t["name"] == "Concert"), None)
+        self.assertIsNotNone(concert_type)
+        self.assertFalse(concert_type["is_sport"])
+
+    def test_l10_migration_no_legacy_types_in_listing(self):
+        """No event in the listing should have type='sponsorship' or type='general'."""
+        _, data = call("listAdmin", "GET", "/api/events")
+        for ev in data["events"]:
+            self.assertNotIn(ev["type"], ("sponsorship", "general"),
+                             f"Event '{ev['name']}' still has legacy type '{ev['type']}'")
