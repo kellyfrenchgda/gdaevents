@@ -266,7 +266,21 @@ function openSheet(id) {
   $("#sheetBody").querySelectorAll("[data-flip]").forEach((b) => { b.onclick = () => flipStatus(ev, b.dataset.flip); });
   $("#btnAlloc").onclick = () => addAlloc(ev.id);
 
-  $("#sheetFoot").hidden = false;  // footer always visible; edit buttons gated inside
+  // Build footer dynamically — run sheet for everyone, edit/delete for managers+
+  const sf = $("#sheetFoot");
+  sf.hidden = false;
+  sf.innerHTML =
+    '<a class="btn ghost sm" href="/api/events/' + ev.id + '/runsheet" target="_blank">' +
+      '&#8659; Run Sheet PDF</a>' +
+    (isManager() ?
+      '<button class="btn ghost sm" id="btnEdit" style="margin-left:8px">Edit event</button>' +
+      '<button class="btn danger sm" id="btnDelete" style="margin-left:auto">Delete event</button>'
+    : '');
+  if (isManager()) {
+    $("#btnEdit").onclick = () => openForm(selectedId);
+    $("#btnDelete").onclick = deleteEvent;
+  }
+
   $("#sheet").classList.add("on");
   $("#scrim").classList.add("on");
   $("#btnCloseSheet").focus();
@@ -456,7 +470,7 @@ async function drawAdminTab() {
 /* ── Staff tab ──────────────────────────────────────────────────────────── */
 
 async function drawStaff(body) {
-  const { users } = await api("GET", "/api/users");
+  const { users } = await api("GET", "/users");
   const list = users.map(u => {
     const rolePills = (u.roles || [u.role]).map(r =>
       '<span class="pill ' + (r==="admin"?"confirmed":r==="manager"?"pending":"") + '" style="margin-right:3px">' + esc(r) + '</span>'
@@ -487,7 +501,7 @@ async function drawStaff(body) {
   body.querySelectorAll("[data-rm-user]").forEach(b => {
     b.onclick = async () => {
       if (!confirm("Remove this person\'s access?")) return;
-      try { await api("DELETE", "/api/users/" + b.dataset.rmUser); await drawAdminTab(); toast("Access removed"); }
+      try { await api("DELETE", "/users/" + b.dataset.rmUser); await drawAdminTab(); toast("Access removed"); }
       catch(err) { toast(err.message, true); }
     };
   });
@@ -495,7 +509,7 @@ async function drawStaff(body) {
     const warn = $("#uWarn"); warn.textContent = "";
     const selectedRoles = Array.from(document.querySelectorAll("#uRoles input:checked")).map(cb => cb.value);
     try {
-      await api("POST", "/api/users", {
+      await api("POST", "/users", {
         name: $("#uName").value.trim(), email: $("#uEmail").value.trim(),
         password: $("#uPass").value,
         roles: selectedRoles.length ? selectedRoles : ["member"]
@@ -512,14 +526,14 @@ async function drawStaff(body) {
       pill.style.cursor = "pointer";
       pill.onclick = async () => {
         const uid = row.dataset.uid;
-        const { users } = await api("GET", "/api/users");
+        const { users } = await api("GET", "/users");
         const user = users.find(u => u.id === uid);
         if (!user) return;
         const current = user.roles || [user.role];
         const role = pill.textContent.trim();
         const updated = current.filter(r => r !== role);
         if (!updated.length) updated.push("member");
-        try { await api("PATCH", "/api/users/" + uid, { roles: updated }); await drawAdminTab(); toast("Role updated"); }
+        try { await api("PATCH", "/users/" + uid, { roles: updated }); await drawAdminTab(); toast("Role updated"); }
         catch(err) { toast(err.message, true); }
       };
     });
@@ -528,7 +542,7 @@ async function drawStaff(body) {
     addBtn.className = "btn ghost sm"; addBtn.textContent = "+ Role";
     addBtn.onclick = async () => {
       const uid = row.dataset.uid;
-      const { users } = await api("GET", "/api/users");
+      const { users } = await api("GET", "/users");
       const user = users.find(u => u.id === uid);
       if (!user) return;
       const current = new Set(user.roles || [user.role]);
@@ -537,7 +551,7 @@ async function drawStaff(body) {
       const pick = choices.length === 1 ? choices[0] : prompt("Add which role? " + choices.join(" / "));
       if (!pick || !choices.includes(pick)) return;
       const updated = [...current, pick];
-      try { await api("PATCH", "/api/users/" + uid, { roles: updated }); await drawAdminTab(); toast("Role added"); }
+      try { await api("PATCH", "/users/" + uid, { roles: updated }); await drawAdminTab(); toast("Role added"); }
       catch(err) { toast(err.message, true); }
     };
     row.querySelector(".role-badges").after(addBtn);
@@ -548,7 +562,7 @@ async function drawStaff(body) {
 /* ── Teams tab ──────────────────────────────────────────────────────────── */
 
 async function drawTeams(body) {
-  const { teams } = await api("GET", "/api/admin/teams");
+  const { teams } = await api("GET", "/admin/teams");
   const SPORTS_LIST = reference.sports || [];
   const STATES_LIST = reference.states || [];
 
@@ -580,14 +594,14 @@ async function drawTeams(body) {
   body.querySelectorAll("[data-rm-team]").forEach(b => {
     b.onclick = async () => {
       if (!confirm("Delete this team?")) return;
-      try { await api("DELETE", "/api/admin/teams/" + b.dataset.rmTeam); await drawAdminTab(); toast("Team removed"); }
+      try { await api("DELETE", "/admin/teams/" + b.dataset.rmTeam); await drawAdminTab(); toast("Team removed"); }
       catch(err) { toast(err.message, true); }
     };
   });
   $("#btnAddTeam").onclick = async () => {
     const warn = $("#tWarn"); warn.textContent = "";
     try {
-      await api("POST", "/api/admin/teams", {
+      await api("POST", "/admin/teams", {
         name: $("#tName").value.trim(),
         sport: $("#tSport").value,
         state: $("#tState").value,
@@ -603,7 +617,7 @@ async function drawTeams(body) {
 /* ── Brands tab ─────────────────────────────────────────────────────────── */
 
 async function drawBrands(body) {
-  const { brands } = await api("GET", "/api/admin/brands");
+  const { brands } = await api("GET", "/admin/brands");
 
   const list = brands.map(b =>
     '<div class="ref-row">' +
@@ -637,7 +651,7 @@ async function drawBrands(body) {
     b.onclick = async () => {
       if (!confirm("Delete this brand?")) return;
       try {
-        await api("DELETE", "/api/admin/brands/" + b.dataset.rmBrand);
+        await api("DELETE", "/admin/brands/" + b.dataset.rmBrand);
         reference = await api("GET", "/reference"); fillSelects();
         await drawAdminTab(); toast("Brand removed");
       } catch(err) { toast(err.message, true); }
@@ -646,7 +660,7 @@ async function drawBrands(body) {
   $("#btnAddBrand").onclick = async () => {
     const warn = $("#bWarn"); warn.textContent = "";
     try {
-      await api("POST", "/api/admin/brands", {
+      await api("POST", "/admin/brands", {
         name: $("#bName").value.trim(),
         colour: $("#bColourHex").value.trim() || $("#bColour").value,
       });
@@ -739,7 +753,7 @@ function wire() {
   $("#btnReseed").onclick = async () => {
     if (!confirm("This will DELETE all current events and allocations and reload the sample data. Continue?")) return;
     try {
-      await api("POST", "/api/admin/reseed");
+      await api("POST", "/admin/reseed");
       await refresh(); render(); closeAdmin();
       toast("Demo data reloaded");
     } catch(err) { toast(err.message, true); }
