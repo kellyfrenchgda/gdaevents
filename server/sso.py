@@ -16,7 +16,9 @@ import msal
 
 sso_bp = Blueprint("sso", __name__)
 
-SCOPES = ["openid", "profile", "email", "User.Read"]
+# MSAL adds openid, profile, and offline_access automatically.
+# Only list the Graph scopes your app actually needs.
+SCOPES = ["User.Read"]
 
 
 def _msal_app():
