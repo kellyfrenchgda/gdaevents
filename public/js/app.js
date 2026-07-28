@@ -686,14 +686,35 @@ function exportCsv() {
 /* ---------------- wiring ---------------- */
 
 function fillSelects() {
-  const add = (sel, arr) => { sel.innerHTML = ""; arr.forEach((v) => {
-    const o = document.createElement("option");
-    o.value = v; o.textContent = v; sel.appendChild(o);
-  }); };
-  add($("#fState"), reference.states); add($("#fSport"), reference.sports);
-  add($("#fBrand"), reference.brands.map ? reference.brands : []);
-  add($("#mState"), reference.states); add($("#mSport"), reference.sports);
-  add($("#mBrand"), reference.brands.map ? reference.brands : []);
+  // Filter dropdowns keep "All …" as the first option (value="") then append choices.
+  const addFilter = (sel, allLabel, arr) => {
+    sel.innerHTML = "";
+    const blank = document.createElement("option");
+    blank.value = ""; blank.textContent = allLabel;
+    sel.appendChild(blank);
+    arr.forEach((v) => {
+      const o = document.createElement("option");
+      o.value = v; o.textContent = v; sel.appendChild(o);
+    });
+    sel.value = "";   // always reset to "All" on every fillSelects call
+  };
+  // Event-form selects get a blank "— select —" first option.
+  const addForm = (sel, placeholder, arr) => {
+    sel.innerHTML = "";
+    const blank = document.createElement("option");
+    blank.value = ""; blank.textContent = placeholder;
+    sel.appendChild(blank);
+    arr.forEach((v) => {
+      const o = document.createElement("option");
+      o.value = v; o.textContent = v; sel.appendChild(o);
+    });
+  };
+  addFilter($("#fState"), "All states",  reference.states);
+  addFilter($("#fSport"), "All sports",  reference.sports);
+  addFilter($("#fBrand"), "All brands",  reference.brands.map ? reference.brands : []);
+  addForm($("#mState"),   "— State —",   reference.states);
+  addForm($("#mSport"),   "— Sport —",   reference.sports);
+  addForm($("#mBrand"),   "— Brand —",   reference.brands.map ? reference.brands : []);
 }
 
 function wire() {
@@ -764,8 +785,13 @@ function wire() {
 
   reference = (await api("GET", "/reference"));
   reference.teams = reference.teams || [];
+  // Explicit defaults — all filters open, past events hidden
+  filters.q = ""; filters.state = ""; filters.sport = ""; filters.brand = ""; filters.past = false;
   fillSelects();
   wire();
+  // Reset visible controls to match default filter state
+  const qi = $("#q"); if (qi) qi.value = "";
+  const fp = $("#fPast"); if (fp) fp.checked = false;
   await refresh();
   render();
 })();
