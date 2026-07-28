@@ -474,9 +474,10 @@ async function drawAdminTab() {
   const body = $("#adminBody");
   body.innerHTML = '<p class="hint" style="padding:20px">Loading…</p>';
   try {
-    if (adminTab === "staff")  await drawStaff(body);
-    if (adminTab === "teams")  await drawTeams(body);
-    if (adminTab === "brands") await drawBrands(body);
+    if (adminTab === "staff")       await drawStaff(body);
+    if (adminTab === "teams")       await drawTeams(body);
+    if (adminTab === "brands")      await drawBrands(body);
+    if (adminTab === "event-types") await drawEventTypes(body);
   } catch(err) {
     body.innerHTML = '<p class="warn" style="padding:20px">' + esc(err.message) + "</p>";
   }
